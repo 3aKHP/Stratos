@@ -45,7 +45,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gpsplane.app.data.model.AttitudeData
+import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
+import com.gpsplane.app.data.PressureMath
 import com.gpsplane.app.data.model.SatelliteInfo
 import com.gpsplane.app.util.UnitConverter
 
@@ -99,7 +101,7 @@ private fun fmtCoord(lat: Double, lon: Double, f: CoordFormat): Pair<String, Str
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GpsScreen(gpsData: GpsData, attData: AttitudeData) {
+fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData) {
     var unitConfig by remember { mutableStateOf(UnitConfig()) }
     var showConfig by remember { mutableStateOf(false) }
 
@@ -147,13 +149,16 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData) {
 
         Spacer(Modifier.height(6.dp))
 
-        // ── Mach | Pitch | Roll | Accel ──
+        // ── Mach | Pitch | Roll | Accel | G | Turn ──
         val mach = UnitConverter.mach(gpsData.speedMps, gpsData.altitudeMeters)
         LightMetricRow(
             "MACH" to "%.2f".format(mach),
             "PITCH" to "%+.1f°".format(attData.pitch),
             "ROLL" to "%+.1f°".format(attData.roll),
             "ACC" to "%.2fg".format(attData.accelerationG),
+            "LOAD" to if (attData.loadFactorG.isNaN()) "—" else "%.2fg".format(attData.loadFactorG),
+            "TURN" to if (attData.turnRateDegPerSec.isNaN()) "—"
+                      else "%+.1f°/s".format(attData.turnRateDegPerSec),
         )
 
         Spacer(Modifier.height(6.dp))
@@ -204,6 +209,11 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData) {
                 phoneAzimuth = attData.azimuth.takeIf { attData.hasAzimuth }
             )
         }
+
+        Spacer(Modifier.height(6.dp))
+
+        // ── Cabin (barometer) | Static (GPS-derived) ──
+        BaroRow(gpsData = gpsData, envData = envData)
 
         Spacer(Modifier.height(6.dp))
 
@@ -538,6 +548,62 @@ private fun HeadingCell(modifier: Modifier, bearing: Float, phoneAzimuth: Float?
                 style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
         }
+    }
+}
+
+// ── Barometer row ───────────────────────────────────────────────────────────
+
+@Composable
+private fun BaroRow(gpsData: GpsData, envData: EnvironmentData) {
+    // Static side is always available (derived from GPS altitude via ISA).
+    val staticPressureHpa = PressureMath.altitudeToPressure(gpsData.altitudeMeters)
+    val staticAltFt = UnitConverter.metersToFeet(gpsData.altitudeMeters)
+
+    val hasBaro = envData.hasPressure && !envData.cabinPressureHpa.isNaN()
+    val cabinAltFt = if (hasBaro) UnitConverter.metersToFeet(envData.cabinAltitudeM.toDouble()) else null
+
+    Row(modifier = Modifier.fillMaxWidth()) {
+        BaroCell(
+            label = "CABIN ALT",
+            primary = if (cabinAltFt != null) "%.0f ft".format(cabinAltFt) else "—",
+            secondary = if (hasBaro) "%.0f m".format(envData.cabinAltitudeM) else "no baro",
+            modifier = Modifier.weight(1f),
+        )
+        BaroCell(
+            label = "STATIC ALT",
+            primary = "%.0f ft".format(staticAltFt),
+            secondary = "%.0f m".format(gpsData.altitudeMeters),
+            modifier = Modifier.weight(1f),
+        )
+        BaroCell(
+            label = "CABIN P",
+            primary = if (hasBaro) "%.1f hPa".format(envData.cabinPressureHpa) else "—",
+            secondary = if (hasBaro) "%.2f inHg".format(envData.cabinPressureHpa * 0.02953f) else "",
+            modifier = Modifier.weight(1f),
+        )
+        BaroCell(
+            label = "STATIC P",
+            primary = "%.1f hPa".format(staticPressureHpa),
+            secondary = "%.2f inHg".format(staticPressureHpa * 0.02953f),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun BaroCell(label: String, primary: String, secondary: String, modifier: Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
+        Text(primary,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+        Text(secondary,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
     }
 }
 
