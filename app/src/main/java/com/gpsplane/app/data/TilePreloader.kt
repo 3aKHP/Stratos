@@ -4,7 +4,6 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -55,25 +54,29 @@ class TilePreloader(
             val total = allTiles.size
             var downloaded = 0
             var failed = 0
+            var lastReportMs = 0L
 
             val semaphore = Semaphore(MAX_CONCURRENT)
-            val tileList = allTiles.toList()
 
-            tileList.chunked(MAX_CONCURRENT).forEach { batch ->
-                batch.map { tileIndex ->
-                    async {
-                        semaphore.withPermit {
-                            val ok = downloadTile(tileIndex)
-                            synchronized(this@TilePreloader) {
-                                if (ok) downloaded++ else failed++
-                            }
-                            withContext(Dispatchers.Main) {
-                                onProgress(Progress(downloaded + failed, total, failed))
-                            }
+            allTiles.map { tileIndex ->
+                async {
+                    semaphore.withPermit {
+                        val ok = downloadTile(tileIndex)
+                        val snapshot = synchronized(this@TilePreloader) {
+                            if (ok) downloaded++ else failed++
+                            val now = System.currentTimeMillis()
+                            val isLast = downloaded + failed >= total
+                            if (isLast || now - lastReportMs >= PROGRESS_REPORT_INTERVAL_MS) {
+                                lastReportMs = now
+                                Progress(downloaded + failed, total, failed)
+                            } else null
+                        }
+                        if (snapshot != null) {
+                            withContext(Dispatchers.Main) { onProgress(snapshot) }
                         }
                     }
-                }.awaitAll()
-            }
+                }
+            }.awaitAll()
 
             Result.success(downloaded)
         } catch (e: Exception) {
@@ -147,11 +150,14 @@ class TilePreloader(
     // ---- tile download ----
 
     private fun downloadTile(tileIndex: Long): Boolean {
+        var conn: HttpURLConnection? = null
         return try {
             val url = URL(tileSource.getTileURLString(tileIndex))
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
+            conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 5000
+                readTimeout = 5000
+                setRequestProperty("User-Agent", USER_AGENT)
+            }
             if (conn.responseCode != 200) return false
 
             val bytes = conn.inputStream.use { it.readBytes() }
@@ -163,6 +169,8 @@ class TilePreloader(
             true
         } catch (_: Exception) {
             false
+        } finally {
+            conn?.disconnect()
         }
     }
 
@@ -193,6 +201,8 @@ class TilePreloader(
     companion object {
         private const val MAX_CONCURRENT = 8
         private const val EARTH_RADIUS_KM = 6371.0
+        private const val PROGRESS_REPORT_INTERVAL_MS = 100L
+        private const val USER_AGENT = "Stratos/0.1.1"
 
         /** Great-circle distance in km (Haversine). */
         fun greatCircleDistance(a: GeoPoint, b: GeoPoint): Double {

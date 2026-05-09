@@ -31,41 +31,19 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.gpsplane.app.data.model.GpsData
+import com.gpsplane.app.data.tiles.ArcGISWorldStreetMap
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.util.GeoPoint
-import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.compass.CompassOverlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 /**
- * ArcGIS Online tile source. ArcGIS Server REST API uses {z}/{y}/{x} URL order
- * (the documented format is tile/{level}/{row}/{col}), while osmdroid defaults
- * to {z}/{x}/{y}. This subclass swaps Y and X to match the ArcGIS convention.
+ * Offline moving map. Tiles preloaded by [TilePreloader] live in
+ * `cacheDir/osmdroid-v2/{ArcGIS tile name}/...` — the cache directory and
+ * tile source must stay consistent with [DownloadScreen].
  */
-private class ArcGISTileSource(
-    name: String, zoomMin: Int, zoomMax: Int,
-    tileSize: Int, imageExt: String, baseUrls: Array<String>
-) : OnlineTileSourceBase(name, zoomMin, zoomMax, tileSize, imageExt, baseUrls) {
-
-    override fun getTileURLString(pMapTileIndex: Long): String {
-        return getBaseUrl() +
-               MapTileIndex.getZoom(pMapTileIndex).toString() + "/" +
-               MapTileIndex.getY(pMapTileIndex).toString() + "/" +
-               MapTileIndex.getX(pMapTileIndex).toString() +
-               mImageFilenameEnding
-    }
-}
-
-private val DefaultTileSource = ArcGISTileSource(
-    "ArcGIS-World-Street-Map",
-    0, 19, 256, ".jpg",
-    arrayOf(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/"
-    )
-)
 
 @Composable
 fun MapScreen(gpsData: GpsData) {
@@ -77,9 +55,9 @@ fun MapScreen(gpsData: GpsData) {
 
     LaunchedEffect(context) {
         Configuration.getInstance().apply {
-            userAgentValue = "Stratos/0.1.0"
-            // Use a fresh cache dir to avoid stale-tile pollution from previous configs
-            osmdroidTileCache = context.cacheDir.resolve("osmdroid-v2")
+            userAgentValue = "Stratos/0.1.1"
+            // filesDir (not cacheDir) so preloaded tiles survive system cache eviction
+            osmdroidTileCache = context.filesDir.resolve("osmdroid-v2")
         }
     }
 
@@ -114,7 +92,7 @@ fun MapScreen(gpsData: GpsData) {
             factory = { ctx ->
                 MapView(ctx).apply {
                     mapView = this
-                    setTileSource(DefaultTileSource)
+                    setTileSource(ArcGISWorldStreetMap)
                     setMultiTouchControls(true)
                     setTilesScaledToDpi(true)
                     setUseDataConnection(true) // preloaded tiles served from cache first
