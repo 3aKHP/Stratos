@@ -30,7 +30,7 @@ Stratos 把你的手机变成驾驶舱风格的飞行显示器。为靠窗座位
 | UI | Jetpack Compose + Material 3 |
 | 地图 | osmdroid 6.1.20（ArcGIS 瓦片源） |
 | GPS | `LocationManager`（GPS_PROVIDER，1 Hz） |
-| 传感器 | `SensorManager`（ROTATION_VECTOR、LINEAR_ACCELERATION） |
+| 传感器 | `SensorManager`（ROTATION_VECTOR、LINEAR_ACCELERATION、ACCELEROMETER、GYROSCOPE、PRESSURE） |
 | 异步 | Kotlin Coroutines + Flow |
 | 构建 | AGP 8.13、Kotlin 2.1、Gradle 8.13 |
 
@@ -116,7 +116,7 @@ Stratos turns your phone into a cockpit-style flight display. Built for window-s
 | UI | Jetpack Compose + Material 3 |
 | Maps | osmdroid 6.1.20 (ArcGIS tile source) |
 | GPS | `LocationManager` (GPS_PROVIDER, 1 Hz) |
-| Sensors | `SensorManager` (ROTATION_VECTOR, LINEAR_ACCELERATION) |
+| Sensors | `SensorManager` (ROTATION_VECTOR, LINEAR_ACCELERATION, ACCELEROMETER, GYROSCOPE, PRESSURE) |
 | Async | Kotlin Coroutines + Flow |
 | Build | AGP 8.13, Kotlin 2.1, Gradle 8.13 |
 

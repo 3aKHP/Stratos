@@ -19,6 +19,9 @@ object UnitConverter {
     // Vertical speed — aviation standard is ft/min
     fun mpsToFtMin(mps: Float): Float = mps * 196.8504f
 
+    // Pressure
+    fun hpaToInHg(hpa: Float): Float = hpa * 0.02953f
+
     // Coordinates
     fun decimalToDms(decimal: Double): String {
         val abs = kotlin.math.abs(decimal)

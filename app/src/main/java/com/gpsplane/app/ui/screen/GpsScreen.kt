@@ -578,13 +578,13 @@ private fun BaroRow(gpsData: GpsData, envData: EnvironmentData) {
         BaroCell(
             label = "CABIN P",
             primary = if (hasBaro) "%.1f hPa".format(envData.cabinPressureHpa) else "—",
-            secondary = if (hasBaro) "%.2f inHg".format(envData.cabinPressureHpa * 0.02953f) else "",
+            secondary = if (hasBaro) "%.2f inHg".format(UnitConverter.hpaToInHg(envData.cabinPressureHpa)) else "",
             modifier = Modifier.weight(1f),
         )
         BaroCell(
             label = "STATIC P",
             primary = "%.1f hPa".format(staticPressureHpa),
-            secondary = "%.2f inHg".format(staticPressureHpa * 0.02953f),
+            secondary = "%.2f inHg".format(UnitConverter.hpaToInHg(staticPressureHpa)),
             modifier = Modifier.weight(1f),
         )
     }

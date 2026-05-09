@@ -32,6 +32,14 @@ object AttitudeMath {
     fun magnitudeInG(x: Float, y: Float, z: Float): Float =
         sqrt(x * x + y * y + z * z) / STANDARD_GRAVITY_MPS2
 
+    /**
+     * Raw gyroscope z-axis (rad/s, +CCW viewed from the screen-up side) to
+     * aviation-convention yaw rate (°/s, positive = right turn). The sign
+     * flip accounts for Android's body-frame convention differing from the
+     * aviation one.
+     */
+    fun gyroZToTurnRateDegPerSec(gyroZRadPerSec: Float): Float =
+        Math.toDegrees(-gyroZRadPerSec.toDouble()).toFloat()
+
     const val STANDARD_GRAVITY_MPS2 = 9.81f
 }
-

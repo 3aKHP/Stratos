@@ -51,4 +51,17 @@ class AttitudeMathTest {
         // All-zero is 0g.
         assertThat(AttitudeMath.magnitudeInG(0f, 0f, 0f)).isEqualTo(0f)
     }
+
+    @Test
+    fun `gyro z to turn rate is sign-flipped and converted to degrees`() {
+        // -1 rad/s raw (CW rotation viewed from screen-up) = right turn in
+        // aviation convention → positive deg/s.
+        assertThat(AttitudeMath.gyroZToTurnRateDegPerSec(-1f))
+            .isWithin(1e-3f).of(Math.toDegrees(1.0).toFloat())
+        // +1 rad/s raw (Android's CCW / aviation left-turn) → negative deg/s.
+        assertThat(AttitudeMath.gyroZToTurnRateDegPerSec(1f))
+            .isWithin(1e-3f).of(Math.toDegrees(-1.0).toFloat())
+        // Zero rotation rate stays zero.
+        assertThat(AttitudeMath.gyroZToTurnRateDegPerSec(0f)).isWithin(0f).of(0f)
+    }
 }

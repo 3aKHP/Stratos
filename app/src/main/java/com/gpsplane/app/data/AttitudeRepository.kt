@@ -64,11 +64,7 @@ class AttitudeRepository(context: Context) {
                         )
                     }
                     Sensor.TYPE_GYROSCOPE -> {
-                        // z-axis rotation rate in rad/s → deg/s. Android reports the
-                        // phone-body frame; z positive = CCW when the screen faces up,
-                        // which corresponds to a left (nose-left) yaw. Flip the sign so
-                        // positive = right turn, matching aviation convention.
-                        latestTurnRate = Math.toDegrees(-event.values[2].toDouble()).toFloat()
+                        latestTurnRate = AttitudeMath.gyroZToTurnRateDegPerSec(event.values[2])
                     }
                 }
 
