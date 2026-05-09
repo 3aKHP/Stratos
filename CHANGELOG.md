@@ -1,5 +1,7 @@
 # Changelog
 
+> **Note**: This file is kept in English for CI/CD tooling compatibility (the release workflow parses it with awk). For a human-readable overview in Chinese, see [ROADMAP.md](ROADMAP.md) and [README.md](README.md).
+
 All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
