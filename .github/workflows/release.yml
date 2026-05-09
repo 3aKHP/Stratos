@@ -18,9 +18,6 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
@@ -41,7 +38,9 @@ jobs:
           echo "NOTES_FILE=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
 
       - name: Build release APK
-        run: ./gradlew assembleRelease
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          arguments: assembleRelease
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.KEYSTORE_BASE64 }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.KEYSTORE_PASSWORD }}

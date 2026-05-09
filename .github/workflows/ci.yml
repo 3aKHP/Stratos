@@ -19,14 +19,10 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Setup Gradle
+      - name: Run tests and build
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Run unit tests
-        run: ./gradlew test
-
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+        with:
+          arguments: test assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
