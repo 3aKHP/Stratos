@@ -41,7 +41,7 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 /**
  * Offline moving map. Tiles preloaded by [TilePreloader] live in
- * `cacheDir/osmdroid-v2/{ArcGIS tile name}/...` — the cache directory and
+ * `filesDir/osmdroid-v2/{ArcGIS tile name}/...` — the cache directory and
  * tile source must stay consistent with [DownloadScreen].
  */
 

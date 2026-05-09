@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 - `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` permissions — not used yet, will return with the v0.2.0 foreground service
-- `WRITE_EXTERNAL_STORAGE` permission — osmdroid uses internal `cacheDir`
+- `WRITE_EXTERNAL_STORAGE` permission — osmdroid now uses internal app storage (`filesDir`)
 
 ## [0.1.0] — Beta
 
