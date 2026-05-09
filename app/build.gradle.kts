@@ -1,3 +1,6 @@
+import java.io.File
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -19,9 +22,9 @@ android {
     // Release signing: CI provides base64 keystore via env vars;
     // local development uses app/stratos.keystore if present.
     val releaseKeystore = if (project.hasProperty("signingKey")) {
-        val bytes = java.util.Base64.getDecoder()
+        val bytes = Base64.getDecoder()
             .decode(project.property("signingKey") as String)
-        java.io.File.createTempFile("stratos", ".keystore").also {
+        File.createTempFile("stratos", ".keystore").also {
             it.writeBytes(bytes)
             it.deleteOnExit()
         }
