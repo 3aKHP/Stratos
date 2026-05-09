@@ -6,6 +6,19 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] — Unreleased
+
+### Changed
+- GPS and sensor flows now stop when the activity is backgrounded and resume on return (`flowWithLifecycle(STARTED)`), avoiding silent GPS drain off-screen
+- Tile cache moved from `filesDir` to `noBackupFilesDir` so preloaded tiles are excluded from Google Auto Backup (25 MB per-app cap)
+- Repositories refactored: extracted `VerticalSpeedFilter`, `AttitudeMath`, and `SatelliteStats` as pure helpers for unit testing
+
+### Added
+- Unit tests for `VerticalSpeedFilter`, `AttitudeMath`, and `SatelliteStats` (13 new tests)
+
+### Fixed
+- Location data no longer streams while the user has the app in the background
+
 ## [0.1.1] — Unreleased
 
 ### Changed
