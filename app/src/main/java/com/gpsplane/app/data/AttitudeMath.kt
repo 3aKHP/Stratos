@@ -20,9 +20,18 @@ object AttitudeMath {
         return EulerDegrees(azimuthDeg, pitchDeg, rollDeg)
     }
 
-    /** |a| / 9.81 — m/s² of net (gravity-removed) acceleration to g-force units. */
-    fun linearAccelerationToG(x: Float, y: Float, z: Float): Float =
+    /**
+     * Magnitude of an acceleration vector, divided by g.
+     *
+     * Used for two distinct readings that share the same math:
+     *  - `TYPE_LINEAR_ACCELERATION` input → net (gravity-removed) acceleration in g,
+     *    the phone/airframe's own motion. Reads ~0 at rest.
+     *  - `TYPE_ACCELEROMETER` input → load factor in g, the aviation standard reading.
+     *    Reads ~1 at rest, >1 in pull-ups, <1 in push-overs or free fall.
+     */
+    fun magnitudeInG(x: Float, y: Float, z: Float): Float =
         sqrt(x * x + y * y + z * z) / STANDARD_GRAVITY_MPS2
 
     const val STANDARD_GRAVITY_MPS2 = 9.81f
 }
+

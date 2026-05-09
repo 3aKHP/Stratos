@@ -42,13 +42,13 @@ class AttitudeMathTest {
     }
 
     @Test
-    fun `linear acceleration magnitude converts to g`() {
+    fun `magnitude in g converts an acceleration vector`() {
         // 9.81 m/s² along a single axis == exactly 1g.
-        assertThat(AttitudeMath.linearAccelerationToG(9.81f, 0f, 0f)).isWithin(1e-4f).of(1f)
+        assertThat(AttitudeMath.magnitudeInG(9.81f, 0f, 0f)).isWithin(1e-4f).of(1f)
         // 3-4-5 triangle scaled: (3,4,0) has magnitude 5.
-        assertThat(AttitudeMath.linearAccelerationToG(3f, 4f, 0f))
+        assertThat(AttitudeMath.magnitudeInG(3f, 4f, 0f))
             .isWithin(1e-4f).of(5f / AttitudeMath.STANDARD_GRAVITY_MPS2)
         // All-zero is 0g.
-        assertThat(AttitudeMath.linearAccelerationToG(0f, 0f, 0f)).isEqualTo(0f)
+        assertThat(AttitudeMath.magnitudeInG(0f, 0f, 0f)).isEqualTo(0f)
     }
 }
