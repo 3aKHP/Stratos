@@ -6,6 +6,35 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0-alpha.1] — Unreleased
+
+First pre-release of the v0.2.0 Cockpit & Sensors milestone. Introduces
+barometer support and fleshes out the motion-sensor readouts.
+
+### Added
+- **Load factor (g)** — aviation-standard load-factor readout from the raw
+  accelerometer (reads ~1g at rest, >1g in pull-ups). Coexists with the
+  existing `ACC` reading, which stays as the gravity-removed airframe
+  motion magnitude.
+- **Turn rate** — yaw rate in °/s from the gyroscope z-axis, positive =
+  right turn. Displayed in the top metric row.
+- **Cabin altitude / pressure** — derived from the device barometer
+  (`TYPE_PRESSURE`) via ISA. Reads "no baro" on devices without a pressure
+  sensor.
+- **Static altitude / pressure** — the ISA-modelled outside-air pressure
+  at the GPS-reported altitude; always available when a fix is present.
+- `PressureMath` (ISA pressure ↔ altitude) with 6 unit tests.
+- `EnvironmentRepository` for environmental sensors; added alongside
+  `GpsRepository` and `AttitudeRepository` in the main data flow.
+
+### Changed
+- `AttitudeMath.linearAccelerationToG` renamed to `magnitudeInG` — same
+  math, now reused for both the linear-acceleration and raw-accelerometer
+  inputs.
+- `AttitudeData` gains `loadFactorG` and `turnRateDegPerSec` fields.
+- Dashboard top metric row expands from 4 to 6 cells
+  (Mach, Pitch, Roll, Acc, Load, Turn). Tight but readable in portrait.
+
 ## [0.1.2] — Unreleased
 
 ### Changed
