@@ -31,6 +31,11 @@ class EnvironmentRepository(context: Context) {
             return@callbackFlow
         }
 
+        // Seed an initial EMPTY so downstream `combine` calls don't block the
+        // whole dashboard waiting for the barometer's first callback (which
+        // can take 200ms+ at SENSOR_DELAY_NORMAL, longer on cold start).
+        trySend(EnvironmentData.EMPTY)
+
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 if (event.sensor.type != Sensor.TYPE_PRESSURE) return

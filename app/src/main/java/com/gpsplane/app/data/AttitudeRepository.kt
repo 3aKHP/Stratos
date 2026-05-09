@@ -41,6 +41,10 @@ class AttitudeRepository(context: Context) {
         var latestTurnRate = Float.NaN
         var hasAzimuth = false
 
+        // Seed an initial EMPTY so downstream `combine` calls don't block on
+        // the first sensor callback before surfacing the dashboard.
+        trySend(AttitudeData.EMPTY)
+
         // Gyroscope and raw accelerometer fire at ~50Hz with visible jitter
         // (sub-degree and sub-0.01g noise) — smooth on the way in so the UI
         // isn't constantly redrawing the last digit. α values chosen to
