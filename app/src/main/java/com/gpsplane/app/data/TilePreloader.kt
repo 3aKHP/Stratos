@@ -201,7 +201,7 @@ class TilePreloader(
         private const val MAX_CONCURRENT = 8
         private const val EARTH_RADIUS_KM = 6371.0
         private const val PROGRESS_REPORT_INTERVAL_MS = 100L
-        private const val USER_AGENT = "Stratos/0.1.1"
+        private const val USER_AGENT = "Stratos/0.1.2"
 
         /** Great-circle distance in km (Haversine). */
         fun greatCircleDistance(a: GeoPoint, b: GeoPoint): Double {

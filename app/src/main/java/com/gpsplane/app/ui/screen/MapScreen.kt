@@ -41,8 +41,8 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 /**
  * Offline moving map. Tiles preloaded by [TilePreloader] live in
- * `filesDir/osmdroid-v2/{ArcGIS tile name}/...` — the cache directory and
- * tile source must stay consistent with [DownloadScreen].
+ * `noBackupFilesDir/osmdroid-v2/{ArcGIS tile name}/...` — the cache
+ * directory and tile source must stay consistent with [DownloadScreen].
  */
 
 @Composable
@@ -55,9 +55,10 @@ fun MapScreen(gpsData: GpsData) {
 
     LaunchedEffect(context) {
         Configuration.getInstance().apply {
-            userAgentValue = "Stratos/0.1.1"
-            // filesDir (not cacheDir) so preloaded tiles survive system cache eviction
-            osmdroidTileCache = context.filesDir.resolve("osmdroid-v2")
+            userAgentValue = "Stratos/0.1.2"
+            // noBackupFilesDir so preloaded tiles survive cache eviction but
+            // aren't swept into Google Auto Backup (25 MB per-app cap).
+            osmdroidTileCache = context.noBackupFilesDir.resolve("osmdroid-v2")
         }
     }
 
