@@ -46,6 +46,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // One-time cleanup of 0.1.1's tile cache location (filesDir/osmdroid-v2).
+        // 0.1.2 moved the cache to noBackupFilesDir — any leftover tiles in the
+        // old path are unreachable, waste space, and count against Auto Backup.
+        filesDir.resolve("osmdroid-v2").takeIf { it.exists() }?.deleteRecursively()
+
         hasLocationPermission = listOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION
