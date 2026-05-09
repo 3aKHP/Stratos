@@ -16,6 +16,30 @@ android {
         versionName = "0.1.0"
     }
 
+    // Release signing: CI provides base64 keystore via env vars;
+    // local development uses app/stratos.keystore if present.
+    val releaseKeystore = if (project.hasProperty("signingKey")) {
+        val bytes = java.util.Base64.getDecoder()
+            .decode(project.property("signingKey") as String)
+        java.io.File.createTempFile("stratos", ".keystore").also {
+            it.writeBytes(bytes)
+            it.deleteOnExit()
+        }
+    } else {
+        rootProject.file("app/stratos.keystore")
+    }
+
+    signingConfigs {
+        if (releaseKeystore.exists()) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = project.findProperty("signingPassword") as? String ?: ""
+                keyAlias = project.findProperty("signingAlias") as? String ?: ""
+                keyPassword = project.findProperty("signingKeyPassword") as? String ?: ""
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -23,6 +47,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
 
