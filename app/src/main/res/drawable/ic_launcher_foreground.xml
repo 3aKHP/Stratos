@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- GPS orbit arc (upper atmosphere) -->
+    <path
+        android:strokeColor="#80D1C4E9"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:pathData="M82,20 A32,32 0 0,0 26,20" />
+
+    <!-- GPS satellite dot -->
+    <path
+        android:fillColor="#B2D1C4E9"
+        android:pathData="M26,20 m-3,0 a3,3 0 1,1 6,0 a3,3 0 1,1 -6,0" />
+
+    <!-- Paper plane — outer wings (filled white delta) -->
+    <path
+        android:fillColor="#E8EAF6"
+        android:pathData="M54,24 L18,68 L54,54 L90,68 Z" />
+
+    <!-- Center fold line -->
+    <path
+        android:strokeColor="#C5CAE9"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000"
+        android:pathData="M54,24 L54,62" />
+
+    <!-- Left wing fold -->
+    <path
+        android:strokeColor="#C5CAE9"
+        android:strokeWidth="1"
+        android:fillColor="#00000000"
+        android:pathData="M54,54 L28,66" />
+
+    <!-- Right wing fold -->
+    <path
+        android:strokeColor="#C5CAE9"
+        android:strokeWidth="1"
+        android:fillColor="#00000000"
+        android:pathData="M54,54 L80,66" />
+
+</vector>
