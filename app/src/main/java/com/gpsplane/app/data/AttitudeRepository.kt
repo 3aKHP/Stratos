@@ -16,13 +16,18 @@ class AttitudeRepository(context: Context) {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
     private val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-    private val accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+    private val linearAccelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+    private val rawAccelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    private val gyroSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
     private val rotationMatrix = FloatArray(9)
     private val orientation = FloatArray(3)
 
     fun observeAttitude(): Flow<AttitudeData> = callbackFlow {
-        if (rotationSensor == null && accelSensor == null) {
+        val hasAnySensor =
+            rotationSensor != null || linearAccelSensor != null ||
+            rawAccelSensor != null || gyroSensor != null
+        if (!hasAnySensor) {
             trySend(AttitudeData.EMPTY)
             awaitClose {}
             return@callbackFlow
@@ -32,6 +37,8 @@ class AttitudeRepository(context: Context) {
         var latestPitch = 0f
         var latestRoll = 0f
         var latestAccel = 0f
+        var latestLoadFactor = Float.NaN
+        var latestTurnRate = Float.NaN
         var hasAzimuth = false
 
         val listener = object : SensorEventListener {
@@ -47,9 +54,21 @@ class AttitudeRepository(context: Context) {
                         hasAzimuth = true
                     }
                     Sensor.TYPE_LINEAR_ACCELERATION -> {
-                        latestAccel = AttitudeMath.linearAccelerationToG(
+                        latestAccel = AttitudeMath.magnitudeInG(
                             event.values[0], event.values[1], event.values[2]
                         )
+                    }
+                    Sensor.TYPE_ACCELEROMETER -> {
+                        latestLoadFactor = AttitudeMath.magnitudeInG(
+                            event.values[0], event.values[1], event.values[2]
+                        )
+                    }
+                    Sensor.TYPE_GYROSCOPE -> {
+                        // z-axis rotation rate in rad/s → deg/s. Android reports the
+                        // phone-body frame; z positive = CCW when the screen faces up,
+                        // which corresponds to a left (nose-left) yaw. Flip the sign so
+                        // positive = right turn, matching aviation convention.
+                        latestTurnRate = Math.toDegrees(-event.values[2].toDouble()).toFloat()
                     }
                 }
 
@@ -59,6 +78,8 @@ class AttitudeRepository(context: Context) {
                         pitch = latestPitch,
                         roll = latestRoll,
                         accelerationG = latestAccel,
+                        loadFactorG = latestLoadFactor,
+                        turnRateDegPerSec = latestTurnRate,
                         hasAzimuth = hasAzimuth
                     )
                 )
@@ -70,7 +91,13 @@ class AttitudeRepository(context: Context) {
         rotationSensor?.let {
             sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_GAME)
         }
-        accelSensor?.let {
+        linearAccelSensor?.let {
+            sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_GAME)
+        }
+        rawAccelSensor?.let {
+            sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_GAME)
+        }
+        gyroSensor?.let {
             sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_GAME)
         }
 
