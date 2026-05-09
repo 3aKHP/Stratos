@@ -18,6 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.flowWithLifecycle
 import com.gpsplane.app.data.AttitudeRepository
 import com.gpsplane.app.data.GpsRepository
 import com.gpsplane.app.data.model.AttitudeData
@@ -42,6 +45,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // One-time cleanup of 0.1.1's tile cache location (filesDir/osmdroid-v2).
+        // 0.1.2 moved the cache to noBackupFilesDir — any leftover tiles in the
+        // old path are unreachable, waste space, and count against Auto Backup.
+        filesDir.resolve("osmdroid-v2").takeIf { it.exists() }?.deleteRecursively()
 
         hasLocationPermission = listOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -82,13 +90,17 @@ fun MainScreen(
     var selectedTab by remember { mutableStateOf(0) }
     var gpsData by remember { mutableStateOf(GpsData.EMPTY) }
     var attData by remember { mutableStateOf(AttitudeData.EMPTY) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    LaunchedEffect(hasPermission, gpsRepository, attitudeRepository) {
+    // Flows are bound to the Activity's STARTED state so GPS / sensors stop
+    // when the user backgrounds the app and resume automatically on return.
+    LaunchedEffect(hasPermission, gpsRepository, attitudeRepository, lifecycle) {
         if (hasPermission && gpsRepository != null && attitudeRepository != null) {
             combine(
                 gpsRepository.observeLocation(),
                 attitudeRepository.observeAttitude()
             ) { gps, att -> Pair(gps, att) }
+                .flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
                 .catch { e -> Log.w("MainScreen", "Data flow error", e) }
                 .collect { (gps, att) ->
                     gpsData = gps

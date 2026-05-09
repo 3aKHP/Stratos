@@ -15,27 +15,16 @@ import com.gpsplane.app.data.model.SatelliteInfo
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlin.math.abs
 
 class GpsRepository(context: Context) {
 
     private val locationManager =
         context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
-    private var satelliteCount = 0
-    private var gpsSatelliteCount = 0
-    private var glonassSatelliteCount = 0
-    private var beidouSatelliteCount = 0
-    private var galileoSatelliteCount = 0
-    private var qzssSatelliteCount = 0
-    private var irnssSatelliteCount = 0
-    private var otherSatelliteCount = 0
-
+    private var latestCounts = SatelliteCounts()
     private var latestSatellites: List<SatelliteInfo> = emptyList()
 
-    private var smoothedVspeed = 0f
-    private var lastAltitude = Double.NaN
-    private var lastAltitudeTime = 0L
+    private val vspeedFilter = VerticalSpeedFilter()
 
     // TTFF tracking
     private var sessionStartElapsedMs = -1L
@@ -44,47 +33,22 @@ class GpsRepository(context: Context) {
 
     private val gnssStatusCallback = object : GnssStatus.Callback() {
         override fun onSatelliteStatusChanged(status: GnssStatus) {
-            val list = mutableListOf<SatelliteInfo>()
-            var total = 0
-            var gps = 0; var glonass = 0; var beidou = 0
-            var galileo = 0; var qzss = 0; var irnss = 0; var other = 0
-
+            val list = ArrayList<SatelliteInfo>(status.satelliteCount)
             for (i in 0 until status.satelliteCount) {
-                val constellation = status.getConstellationType(i)
-                val used = status.usedInFix(i)
-
-                if (used) {
-                    total++
-                    when (constellation) {
-                        GnssStatus.CONSTELLATION_GPS -> gps++
-                        GnssStatus.CONSTELLATION_GLONASS -> glonass++
-                        GnssStatus.CONSTELLATION_BEIDOU -> beidou++
-                        GnssStatus.CONSTELLATION_GALILEO -> galileo++
-                        GnssStatus.CONSTELLATION_QZSS -> qzss++
-                        GnssStatus.CONSTELLATION_IRNSS -> irnss++
-                        else -> other++
-                    }
-                }
-
                 list.add(
                     SatelliteInfo(
                         svid = status.getSvid(i),
-                        constellationType = constellation,
+                        constellationType = status.getConstellationType(i),
                         cn0DbHz = status.getCn0DbHz(i),
                         azimuth = status.getAzimuthDegrees(i),
                         elevation = status.getElevationDegrees(i),
-                        usedInFix = used,
+                        usedInFix = status.usedInFix(i),
                         hasEphemeris = status.hasEphemerisData(i),
                         hasAlmanac = status.hasAlmanacData(i)
                     )
                 )
             }
-
-            satelliteCount = total
-            gpsSatelliteCount = gps; glonassSatelliteCount = glonass
-            beidouSatelliteCount = beidou; galileoSatelliteCount = galileo
-            qzssSatelliteCount = qzss; irnssSatelliteCount = irnss
-            otherSatelliteCount = other
+            latestCounts = SatelliteStats.countUsedInFix(list)
             latestSatellites = list
         }
     }
@@ -111,24 +75,8 @@ class GpsRepository(context: Context) {
                     ttffMs = SystemClock.elapsedRealtime() - sessionStartElapsedMs
                 }
 
-                // Compute raw vertical speed from altitude delta
-                var rawVspeed = 0f
-                if (!lastAltitude.isNaN() && lastAltitudeTime > 0) {
-                    val dt = (now - lastAltitudeTime) / 1000.0
-                    if (dt > 0.5) {
-                        rawVspeed = ((loc.altitude - lastAltitude) / dt).toFloat()
-                    }
-                }
-
-                val alpha = 0.3f
-                smoothedVspeed = if (abs(smoothedVspeed) < 0.01f && abs(rawVspeed) > 10f) {
-                    rawVspeed
-                } else {
-                    smoothedVspeed * (1f - alpha) + rawVspeed * alpha
-                }
-
-                lastAltitude = loc.altitude
-                lastAltitudeTime = now
+                val vspeed = vspeedFilter.update(loc.altitude, now)
+                val counts = latestCounts
 
                 trySend(
                     GpsData(
@@ -138,15 +86,15 @@ class GpsRepository(context: Context) {
                         speedMps = loc.speed,
                         bearing = loc.bearing,
                         accuracyMeters = loc.accuracy,
-                        verticalSpeedMps = smoothedVspeed,
-                        satelliteCount = satelliteCount,
-                        gpsSatelliteCount = gpsSatelliteCount,
-                        glonassSatelliteCount = glonassSatelliteCount,
-                        beidouSatelliteCount = beidouSatelliteCount,
-                        galileoSatelliteCount = galileoSatelliteCount,
-                        qzssSatelliteCount = qzssSatelliteCount,
-                        irnssSatelliteCount = irnssSatelliteCount,
-                        otherSatelliteCount = otherSatelliteCount,
+                        verticalSpeedMps = vspeed,
+                        satelliteCount = counts.total,
+                        gpsSatelliteCount = counts.gps,
+                        glonassSatelliteCount = counts.glonass,
+                        beidouSatelliteCount = counts.beidou,
+                        galileoSatelliteCount = counts.galileo,
+                        qzssSatelliteCount = counts.qzss,
+                        irnssSatelliteCount = counts.irnss,
+                        otherSatelliteCount = counts.other,
                         satellites = latestSatellites,
                         ttffSeconds = if (ttffMs > 0) ttffMs / 1000f else -1f,
                         timestampMs = now,
