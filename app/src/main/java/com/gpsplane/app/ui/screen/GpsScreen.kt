@@ -39,11 +39,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gpsplane.app.data.model.AttitudeData
@@ -408,7 +406,6 @@ private fun CompactSignalBars(satellites: List<SatelliteInfo>) {
         .groupBy { it.constellationType }
         .mapValues { (_, list) ->
             val bestFix = list.filter { it.usedInFix }.maxOfOrNull { it.cn0DbHz } ?: 0f
-            val maxAll = list.maxOf { it.cn0DbHz }
             val fixCount = list.count { it.usedInFix }
             Pair(maxOf(bestFix, 0f), fixCount)
         }

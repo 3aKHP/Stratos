@@ -1,6 +1,5 @@
 *.iml
 .gradle
-/local.properties
 /.idea
 .DS_Store
 /build
@@ -10,6 +9,7 @@
 local.properties
 /app/build
 /app/release
+/local_dev
 *.apk
 *.aab
 *.jks

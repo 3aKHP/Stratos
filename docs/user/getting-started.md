@@ -2,7 +2,7 @@
 
 ## Installation
 
-Download the latest APK from [GitHub Releases](https://github.com/<user>/GPS-Plane/releases) and sideload onto your device. Stratos requires Android 8.0 (API 26) or later.
+Download the latest APK from [GitHub Releases](https://github.com/3aKHP/GPS-Plane/releases) and sideload onto your device. Stratos requires Android 8.0 (API 26) or later.
 
 On first launch, grant location permission when prompted. GPS access is required for all features.
 
@@ -35,6 +35,5 @@ On first launch, grant location permission when prompted. GPS access is required
 |---|---|
 | Location (Fine + Coarse) | GPS/GNSS satellite positioning |
 | Internet | Tile download during preload (not used in flight) |
-| Foreground Service | Planned: keep GPS active when screen is off |
 
 Stratos does not collect or transmit your location data.

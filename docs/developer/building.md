@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Android Studio (latest stable) or JDK 17 + Android SDK 36
-- Gradle 8.11+ (wrapper included)
+- Gradle 8.13+ (wrapper included)
 - Android SDK with build-tools 36+ and platform-tools
 
 ## Setup

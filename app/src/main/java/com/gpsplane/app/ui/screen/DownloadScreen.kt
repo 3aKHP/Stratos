@@ -36,24 +36,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.gpsplane.app.data.TilePreloader
 import com.gpsplane.app.data.model.GpsData
+import com.gpsplane.app.data.tiles.ArcGISWorldStreetMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.util.GeoPoint
-import org.osmdroid.util.MapTileIndex
-
-private fun createTileSource(): OnlineTileSourceBase = object : OnlineTileSourceBase(
-    "ArcGIS-World-Street-Map", 0, 19, 256, ".jpg",
-    arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/")
-) {
-    override fun getTileURLString(pMapTileIndex: Long): String {
-        return baseUrl + MapTileIndex.getZoom(pMapTileIndex) + "/" +
-               MapTileIndex.getY(pMapTileIndex) + "/" +
-               MapTileIndex.getX(pMapTileIndex) + mImageFilenameEnding
-    }
-}
 
 @Composable
 fun DownloadScreen(gpsData: GpsData) {
@@ -79,8 +67,8 @@ fun DownloadScreen(gpsData: GpsData) {
     // Ensure cache dir matches MapScreen (osmdroid-v2)
     LaunchedEffect(context) {
         Configuration.getInstance().apply {
-            userAgentValue = "Stratos/0.1.0"
-            osmdroidTileCache = context.cacheDir.resolve("osmdroid-v2")
+            userAgentValue = "Stratos/0.1.1"
+            osmdroidTileCache = context.filesDir.resolve("osmdroid-v2")
         }
     }
 
@@ -91,7 +79,7 @@ fun DownloadScreen(gpsData: GpsData) {
             estimate = withContext(Dispatchers.IO) {
                 TilePreloader(
                     Configuration.getInstance().osmdroidTileCache,
-                    createTileSource()
+                    ArcGISWorldStreetMap
                 ).estimateTileCount(dep, arr, zoomMin.toInt(), zoomMax.toInt(), corridorKm.toDouble())
             }
         } else {
@@ -231,7 +219,7 @@ fun DownloadScreen(gpsData: GpsData) {
                     scope.launch {
                         val result = TilePreloader(
                             Configuration.getInstance().osmdroidTileCache,
-                            createTileSource()
+                            ArcGISWorldStreetMap
                         ).preload(
                             departure = dep,
                             destination = arr,

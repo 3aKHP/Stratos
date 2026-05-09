@@ -6,7 +6,20 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.0] — Unreleased (Beta)
+## [0.1.1] — Unreleased
+
+### Changed
+- Consolidate ArcGIS tile source into `data/tiles/ArcGISWorldStreetMap` shared by map and preloader
+- Tile cache moved from `cacheDir` to `filesDir` so preloaded tiles survive system cache eviction
+- TilePreloader: Semaphore now actually gates concurrency (removed batched `awaitAll`)
+- TilePreloader: send `User-Agent` header and disconnect HTTP connections after each tile
+- TilePreloader: throttle progress callbacks to main thread (≤100ms interval)
+
+### Removed
+- `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` permissions — not used yet, will return with the v0.2.0 foreground service
+- `WRITE_EXTERNAL_STORAGE` permission — osmdroid now uses internal app storage (`filesDir`)
+
+## [0.1.0] — Beta
 
 ### Added
 - GPS Dashboard with avionics-style instrument panel (speed, altitude, heading, vertical speed)
