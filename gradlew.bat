@@ -1,27 +1,24 @@
-@rem Minimal gradlew — delegates to local Gradle installation if wrapper jar not available
+@rem Gradle startup script for Windows
 @if "%DEBUG%"=="" @echo off
-@rem Find project root
+@rem Set local scope for the variables with windows NT shell
+if "%OS%"=="Windows_NT" setlocal
+
 set DIRNAME=%~dp0
 if "%DIRNAME%"=="" set DIRNAME=.
+@rem This is normally unused
+set APP_BASE_NAME=%~n0
+set APP_HOME=%DIRNAME%
 
-set GRADLE_USER_HOME=%USERPROFILE%\.gradle
+@rem Resolve any "." and ".." in APP_HOME to make it shorter.
+for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
-@rem Use locally installed Gradle 8.14 if available (bypasses wrapper jar dependency)
-set LOCAL_GRADLE=%GRADLE_USER_HOME%\wrapper\dists\gradle-8.14-bin\38aieal9i53h9rfe7vjup95b9\gradle-8.14\bin\gradle
-if exist "%LOCAL_GRADLE%.bat" (
-    "%LOCAL_GRADLE%.bat" %*
-    goto :eof
-)
+set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
 
-@rem Fallback: try to use Android Studio's bundled Gradle
-for /d %%i in ("E:\AndroidStudio\plugins\gradle\*") do (
-    if exist "%%i\bin\gradle.bat" (
-        "%%i\bin\gradle.bat" %*
-        goto :eof
-    )
-)
+@rem Execute Gradle
+"%JAVA_HOME%\bin\java.exe" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %*
 
-@rem Last resort: print instructions
-echo Gradle wrapper not found. Please open this project in Android Studio to set up the wrapper.
-echo File ^> Open ^> select %DIRNAME%
-exit /b 1
+:end
+@rem End local scope for the variables with windows NT shell
+if "%OS%"=="Windows_NT" endlocal
+
+:omega
