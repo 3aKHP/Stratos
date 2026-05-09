@@ -9,7 +9,6 @@ import com.gpsplane.app.data.model.AttitudeData
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlin.math.sqrt
 
 class AttitudeRepository(context: Context) {
 
@@ -39,23 +38,18 @@ class AttitudeRepository(context: Context) {
             override fun onSensorChanged(event: SensorEvent) {
                 when (event.sensor.type) {
                     Sensor.TYPE_ROTATION_VECTOR -> {
-                        val clone = event.values.clone()
-                        SensorManager.getRotationMatrixFromVector(rotationMatrix, clone)
+                        SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values.clone())
                         SensorManager.getOrientation(rotationMatrix, orientation)
-                        // orientation[0] = azimuth (rad, 0=North, CCW positive → CW negative)
-                        // orientation[1] = pitch (rad, -π/2..π/2)
-                        // orientation[2] = roll (rad, -π..π)
-                        latestAzimuth = Math.toDegrees(-orientation[0].toDouble()).toFloat()
-                            .let { if (it < 0) it + 360 else it }
-                        latestPitch = Math.toDegrees(orientation[1].toDouble()).toFloat()
-                        latestRoll = Math.toDegrees(orientation[2].toDouble()).toFloat()
+                        val euler = AttitudeMath.orientationRadiansToDegrees(orientation)
+                        latestAzimuth = euler.azimuth
+                        latestPitch = euler.pitch
+                        latestRoll = euler.roll
                         hasAzimuth = true
                     }
                     Sensor.TYPE_LINEAR_ACCELERATION -> {
-                        val x = event.values[0]
-                        val y = event.values[1]
-                        val z = event.values[2]
-                        latestAccel = sqrt(x * x + y * y + z * z) / 9.81f // m/s² → g
+                        latestAccel = AttitudeMath.linearAccelerationToG(
+                            event.values[0], event.values[1], event.values[2]
+                        )
                     }
                 }
 
