@@ -22,8 +22,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.flowWithLifecycle
 import com.gpsplane.app.data.AttitudeRepository
+import com.gpsplane.app.data.EnvironmentRepository
 import com.gpsplane.app.data.GpsRepository
 import com.gpsplane.app.data.model.AttitudeData
+import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.ui.screen.DownloadScreen
 import com.gpsplane.app.ui.screen.GpsScreen
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
                     hasPermission = hasLocationPermission,
                     gpsRepository = if (hasLocationPermission) GpsRepository(this) else null,
                     attitudeRepository = if (hasLocationPermission) AttitudeRepository(this) else null,
+                    environmentRepository = if (hasLocationPermission) EnvironmentRepository(this) else null,
                     onRequestPermission = { requestPermissions() }
                 )
             }
@@ -85,26 +88,30 @@ fun MainScreen(
     hasPermission: Boolean,
     gpsRepository: GpsRepository?,
     attitudeRepository: AttitudeRepository?,
+    environmentRepository: EnvironmentRepository?,
     onRequestPermission: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var gpsData by remember { mutableStateOf(GpsData.EMPTY) }
     var attData by remember { mutableStateOf(AttitudeData.EMPTY) }
+    var envData by remember { mutableStateOf(EnvironmentData.EMPTY) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     // Flows are bound to the Activity's STARTED state so GPS / sensors stop
     // when the user backgrounds the app and resume automatically on return.
-    LaunchedEffect(hasPermission, gpsRepository, attitudeRepository, lifecycle) {
-        if (hasPermission && gpsRepository != null && attitudeRepository != null) {
+    LaunchedEffect(hasPermission, gpsRepository, attitudeRepository, environmentRepository, lifecycle) {
+        if (hasPermission && gpsRepository != null && attitudeRepository != null && environmentRepository != null) {
             combine(
                 gpsRepository.observeLocation(),
-                attitudeRepository.observeAttitude()
-            ) { gps, att -> Pair(gps, att) }
+                attitudeRepository.observeAttitude(),
+                environmentRepository.observeEnvironment(),
+            ) { gps, att, env -> Triple(gps, att, env) }
                 .flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
                 .catch { e -> Log.w("MainScreen", "Data flow error", e) }
-                .collect { (gps, att) ->
+                .collect { (gps, att, env) ->
                     gpsData = gps
                     attData = att
+                    envData = env
                 }
         }
     }
@@ -138,7 +145,7 @@ fun MainScreen(
                 PermissionPrompt(onRequestPermission)
             } else {
                 when (selectedTab) {
-                    0 -> GpsScreen(gpsData, attData)
+                    0 -> GpsScreen(gpsData, attData, envData)
                     1 -> MapScreen(gpsData)
                     2 -> DownloadScreen(gpsData)
                 }

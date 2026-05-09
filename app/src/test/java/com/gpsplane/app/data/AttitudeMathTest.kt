@@ -42,13 +42,26 @@ class AttitudeMathTest {
     }
 
     @Test
-    fun `linear acceleration magnitude converts to g`() {
+    fun `magnitude in g converts an acceleration vector`() {
         // 9.81 m/s² along a single axis == exactly 1g.
-        assertThat(AttitudeMath.linearAccelerationToG(9.81f, 0f, 0f)).isWithin(1e-4f).of(1f)
+        assertThat(AttitudeMath.magnitudeInG(9.81f, 0f, 0f)).isWithin(1e-4f).of(1f)
         // 3-4-5 triangle scaled: (3,4,0) has magnitude 5.
-        assertThat(AttitudeMath.linearAccelerationToG(3f, 4f, 0f))
+        assertThat(AttitudeMath.magnitudeInG(3f, 4f, 0f))
             .isWithin(1e-4f).of(5f / AttitudeMath.STANDARD_GRAVITY_MPS2)
         // All-zero is 0g.
-        assertThat(AttitudeMath.linearAccelerationToG(0f, 0f, 0f)).isEqualTo(0f)
+        assertThat(AttitudeMath.magnitudeInG(0f, 0f, 0f)).isEqualTo(0f)
+    }
+
+    @Test
+    fun `gyro z to turn rate is sign-flipped and converted to degrees`() {
+        // -1 rad/s raw (CW rotation viewed from screen-up) = right turn in
+        // aviation convention → positive deg/s.
+        assertThat(AttitudeMath.gyroZToTurnRateDegPerSec(-1f))
+            .isWithin(1e-3f).of(Math.toDegrees(1.0).toFloat())
+        // +1 rad/s raw (Android's CCW / aviation left-turn) → negative deg/s.
+        assertThat(AttitudeMath.gyroZToTurnRateDegPerSec(1f))
+            .isWithin(1e-3f).of(Math.toDegrees(-1.0).toFloat())
+        // Zero rotation rate stays zero.
+        assertThat(AttitudeMath.gyroZToTurnRateDegPerSec(0f)).isWithin(0f).of(0f)
     }
 }
