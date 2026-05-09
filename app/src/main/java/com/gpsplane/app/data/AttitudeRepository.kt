@@ -41,6 +41,13 @@ class AttitudeRepository(context: Context) {
         var latestTurnRate = Float.NaN
         var hasAzimuth = false
 
+        // Gyroscope and raw accelerometer fire at ~50Hz with visible jitter
+        // (sub-degree and sub-0.01g noise) — smooth on the way in so the UI
+        // isn't constantly redrawing the last digit. α values chosen to
+        // settle in a few hundred ms while still tracking real maneuvers.
+        val turnRateFilter = EmaFilter(alpha = 0.15f)
+        val loadFactorFilter = EmaFilter(alpha = 0.1f)
+
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 when (event.sensor.type) {
@@ -59,12 +66,16 @@ class AttitudeRepository(context: Context) {
                         )
                     }
                     Sensor.TYPE_ACCELEROMETER -> {
-                        latestLoadFactor = AttitudeMath.magnitudeInG(
-                            event.values[0], event.values[1], event.values[2]
+                        latestLoadFactor = loadFactorFilter.update(
+                            AttitudeMath.magnitudeInG(
+                                event.values[0], event.values[1], event.values[2]
+                            )
                         )
                     }
                     Sensor.TYPE_GYROSCOPE -> {
-                        latestTurnRate = AttitudeMath.gyroZToTurnRateDegPerSec(event.values[2])
+                        latestTurnRate = turnRateFilter.update(
+                            AttitudeMath.gyroZToTurnRateDegPerSec(event.values[2])
+                        )
                     }
                 }
 

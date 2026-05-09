@@ -158,7 +158,7 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData)
             "ACC" to "%.2fg".format(attData.accelerationG),
             "LOAD" to if (attData.loadFactorG.isNaN()) "—" else "%.2fg".format(attData.loadFactorG),
             "TURN" to if (attData.turnRateDegPerSec.isNaN()) "—"
-                      else "%+.1f°/s".format(attData.turnRateDegPerSec),
+                      else "%+.0f°/s".format(attData.turnRateDegPerSec),
         )
 
         Spacer(Modifier.height(6.dp))
@@ -475,11 +475,13 @@ private fun LightMetricRow(
             ) {
                 Text(label,
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    maxLines = 1, softWrap = false)
                 Text(value,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                    maxLines = 1, softWrap = false)
             }
         }
     }
@@ -505,19 +507,24 @@ private fun InstrumentCell(
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            maxLines = 1, softWrap = false)
         Text(v1,
             style = MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold))
+                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
+            maxLines = 1, softWrap = false)
         Text(u1,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary)
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1, softWrap = false)
         Text(v2,
             style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+            maxLines = 1, softWrap = false)
         Text(u2,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            maxLines = 1, softWrap = false)
     }
 }
 
@@ -595,15 +602,18 @@ private fun BaroCell(label: String, primary: String, secondary: String, modifier
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            maxLines = 1, softWrap = false)
         Text(primary,
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+            maxLines = 1, softWrap = false)
         Text(secondary,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            maxLines = 1, softWrap = false)
     }
 }
 
