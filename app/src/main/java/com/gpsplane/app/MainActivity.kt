@@ -15,9 +15,13 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.gpsplane.app.data.FlightTimer
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
@@ -74,11 +78,30 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             GpsPlaneTheme {
+                var immersive by rememberSaveable { mutableStateOf(false) }
+                LaunchedEffect(immersive) {
+                    applyImmersive(immersive)
+                }
                 MainScreen(
                     hasPermission = hasLocationPermission,
+                    immersive = immersive,
+                    onImmersiveChange = { immersive = it },
                     onRequestPermission = { requestPermissions() }
                 )
             }
+        }
+    }
+
+    private fun applyImmersive(enabled: Boolean) {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        if (enabled) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            controller.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 
@@ -107,6 +130,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     hasPermission: Boolean,
+    immersive: Boolean,
+    onImmersiveChange: (Boolean) -> Unit,
     onRequestPermission: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
@@ -153,6 +178,8 @@ fun MainScreen(
                         gpsData, attData, envData, flightSnap, declinationDeg,
                         recordingEnabled = recordingEnabled,
                         onRecordingEnabledChange = { service?.setRecordingEnabled(it) },
+                        immersive = immersive,
+                        onImmersiveChange = onImmersiveChange,
                     )
                     1 -> MapScreen(gpsData)
                     2 -> DownloadScreen(gpsData)

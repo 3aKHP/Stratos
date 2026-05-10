@@ -39,6 +39,8 @@ fun GpsScreen(
     declinationDeg: Float,
     recordingEnabled: Boolean,
     onRecordingEnabledChange: (Boolean) -> Unit,
+    immersive: Boolean,
+    onImmersiveChange: (Boolean) -> Unit,
 ) {
     var unitConfig by remember { mutableStateOf(UnitConfig()) }
     var showConfig by remember { mutableStateOf(false) }
@@ -49,6 +51,8 @@ fun GpsScreen(
             onConfigChange = { unitConfig = it },
             recordingEnabled = recordingEnabled,
             onRecordingEnabledChange = onRecordingEnabledChange,
+            immersive = immersive,
+            onImmersiveChange = onImmersiveChange,
             onDismiss = { showConfig = false }
         )
     }

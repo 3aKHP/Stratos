@@ -32,8 +32,8 @@ import com.gpsplane.app.ui.format.VSpeedUnit
 /**
  * Bottom-sheet that lets the user pick display units per metric (ground
  * speed, altitude, vertical speed, coordinates), the heading reference
- * (magnetic or true), and whether GPX tracks are recorded automatically
- * when AIRBORNE.
+ * (magnetic or true), whether GPX tracks are recorded automatically
+ * when AIRBORNE, and whether the dashboard hides system bars.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +42,8 @@ internal fun UnitConfigSheet(
     onConfigChange: (UnitConfig) -> Unit,
     recordingEnabled: Boolean,
     onRecordingEnabledChange: (Boolean) -> Unit,
+    immersive: Boolean,
+    onImmersiveChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -64,6 +66,26 @@ internal fun UnitConfigSheet(
                 { onConfigChange(config.copy(coord1 = it)) }, { onConfigChange(config.copy(coord2 = it)) })
             SingleUnitRow("Heading Reference", HeadingRef.entries, config.headingRef, { it.label },
                 { onConfigChange(config.copy(headingRef = it)) })
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(16.dp))
+            Text("Display", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Immersive mode", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        "Hide status and navigation bars. Swipe from the edge to reveal.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                }
+                Switch(checked = immersive, onCheckedChange = onImmersiveChange)
+            }
 
             Spacer(Modifier.height(16.dp))
             HorizontalDivider()
