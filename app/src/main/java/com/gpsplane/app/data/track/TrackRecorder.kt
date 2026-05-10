@@ -21,12 +21,14 @@ import java.util.TimeZone
  * directory (expected to be `filesDir/tracks` — Auto-Backup eligible,
  * which is fine for passenger flights where files stay < 1 MB each).
  *
- * Not thread-safe — the caller is expected to serialise calls, which the
- * service does naturally by collecting on one coroutine.
+ * **Not thread-safe.** The owning coroutine must serialise all access
+ * — `onGpsSample`, the [enabled] setter, and [close]. The service
+ * funnels both the GPS stream and the recording-enabled toggle onto
+ * its collector coroutine for exactly this reason.
  *
- * Recording can be disabled with [enabled] = false without disturbing the
- * rest of the service; a false→true transition mid-flight starts a new
- * file at the next sample.
+ * Recording can be disabled with [enabled] = false without disturbing
+ * the rest of the service; a false→true transition mid-flight starts a
+ * new file at the next sample.
  */
 class TrackRecorder(
     private val root: File,

@@ -82,15 +82,13 @@ class GpsTrackingService : Service() {
     val recordingEnabledFlow: StateFlow<Boolean> get() = _recordingEnabled.asStateFlow()
 
     /**
-     * Toggle GPX recording on the fly. When disabled mid-flight the
-     * current file is closed and a new one will start only if AIRBORNE
-     * is re-entered while enabled.
+     * Toggle GPX recording on the fly. Stored on a StateFlow and applied
+     * to the recorder inside the service's collector so the UI thread
+     * never mutates the recorder's writer state concurrently with a
+     * write.
      */
     fun setRecordingEnabled(enabled: Boolean) {
         _recordingEnabled.value = enabled
-        trackRecorder.enabled = enabled
-        _recording.value = trackRecorder.state().recording
-        refreshNotification(_flight.value, _gps.value.timestampMs)
     }
 
     inner class LocalBinder : Binder() {
@@ -121,6 +119,18 @@ class GpsTrackingService : Service() {
 
         startForegroundCompat(buildNotification(FlightTimer.Snapshot.INITIAL, 0L))
         if (collectJob == null) {
+            // Apply recording-enabled changes on the same coroutine that
+            // writes samples. The toggle originates on the UI thread and
+            // `trackRecorder` mutates a file-backed Writer, so reconciling
+            // here is what keeps the writer from being closed mid-write.
+            _recordingEnabled
+                .onEach { enabled ->
+                    trackRecorder.enabled = enabled
+                    _recording.value = trackRecorder.state().recording
+                    refreshNotification(_flight.value, _gps.value.timestampMs)
+                }
+                .launchIn(scope)
+
             collectJob = combine(
                 gpsRepository.observeLocation(),
                 attitudeRepository.observeAttitude(),
