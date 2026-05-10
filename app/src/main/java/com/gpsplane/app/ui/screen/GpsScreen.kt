@@ -47,6 +47,9 @@ import androidx.compose.ui.unit.sp
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
+import com.gpsplane.app.data.FlightPhase
+import com.gpsplane.app.data.FlightTimer
+import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.PressureMath
 import com.gpsplane.app.data.model.SatelliteInfo
 import com.gpsplane.app.util.UnitConverter
@@ -57,6 +60,7 @@ private enum class SpeedUnit(val label: String) { KNOTS("kn"), KMH("km/h"), MPH(
 private enum class AltUnit(val label: String) { FEET("ft"), METERS("m") }
 private enum class VSpeedUnit(val label: String) { FT_MIN("ft/min"), M_S("m/s") }
 private enum class CoordFormat(val label: String) { DECIMAL("Dec"), DMS("DMS") }
+private enum class HeadingRef(val label: String) { MAG("MAG"), TRUE("TRUE") }
 
 private data class UnitConfig(
     val speed1: SpeedUnit = SpeedUnit.KNOTS,
@@ -67,6 +71,7 @@ private data class UnitConfig(
     val vs2: VSpeedUnit = VSpeedUnit.M_S,
     val coord1: CoordFormat = CoordFormat.DECIMAL,
     val coord2: CoordFormat = CoordFormat.DMS,
+    val headingRef: HeadingRef = HeadingRef.MAG,
 )
 
 // ── Format helpers ─────────────────────────────────────────────────────────
@@ -101,7 +106,13 @@ private fun fmtCoord(lat: Double, lon: Double, f: CoordFormat): Pair<String, Str
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData) {
+fun GpsScreen(
+    gpsData: GpsData,
+    attData: AttitudeData,
+    envData: EnvironmentData,
+    flightSnap: FlightTimer.Snapshot,
+    declinationDeg: Float,
+) {
     var unitConfig by remember { mutableStateOf(UnitConfig()) }
     var showConfig by remember { mutableStateOf(false) }
 
@@ -118,6 +129,10 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData)
         return
     }
 
+    // GPS samples already arrive ~1 Hz, so the flight timer and the bottom
+    // clocks advance at the cadence users expect without a separate ticker.
+    val nowMs = gpsData.timestampMs
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -125,7 +140,11 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData)
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // ── Top bar ──
-        TopBar(gpsData, onSettingsClick = { showConfig = true })
+        TopBar(
+            gpsData = gpsData,
+            flightState = FlightTimer.display(flightSnap, nowMs),
+            onSettingsClick = { showConfig = true },
+        )
 
         Spacer(Modifier.height(6.dp))
 
@@ -142,7 +161,7 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData)
                 .padding(horizontal = 16.dp)
         )
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(16.dp))
 
         // ── Compact signal bars ──
         CompactSignalBars(gpsData.satellites)
@@ -163,52 +182,13 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData)
 
         Spacer(Modifier.height(6.dp))
 
-        // ── Speed | Altitude ──
-        InstrumentRow(
-            labelL = "SPEED",
-            valL1 = fmtSpd(gpsData.speedMps, unitConfig.speed1),
-            unitL1 = unitConfig.speed1.label,
-            valL2 = fmtSpd(gpsData.speedMps, unitConfig.speed2),
-            unitL2 = unitConfig.speed2.label,
-            labelR = "ALTITUDE",
-            valR1 = fmtAlt(gpsData.altitudeMeters, unitConfig.alt1),
-            unitR1 = unitConfig.alt1.label,
-            valR2 = fmtAlt(gpsData.altitudeMeters, unitConfig.alt2),
-            unitR2 = unitConfig.alt2.label,
+        // ── Speed | Altitude | Vert Spd | Track ──
+        PrimaryInstrumentRow(
+            gpsData = gpsData,
+            attData = attData,
+            unitConfig = unitConfig,
+            declinationDeg = declinationDeg,
         )
-
-        Spacer(Modifier.height(6.dp))
-
-        // ── V/S | Heading ──
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // V/S (dual-unit, left)
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("VERT SPD",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
-                Text(fmtVS(gpsData.verticalSpeedMps, unitConfig.vs1),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold))
-                Text(unitConfig.vs1.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary)
-                Text(fmtVS(gpsData.verticalSpeedMps, unitConfig.vs2),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                Text(unitConfig.vs2.label,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
-            }
-            // Heading (right, with phone azimuth as sub-unit)
-            HeadingCell(
-                modifier = Modifier.weight(1f),
-                bearing = gpsData.bearing,
-                phoneAzimuth = attData.azimuth.takeIf { attData.hasAzimuth }
-            )
-        }
 
         Spacer(Modifier.height(6.dp))
 
@@ -225,7 +205,11 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData)
 // ── Top bar ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun TopBar(gpsData: GpsData, onSettingsClick: () -> Unit) {
+private fun TopBar(
+    gpsData: GpsData,
+    flightState: com.gpsplane.app.data.FlightTimerState,
+    onSettingsClick: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -240,7 +224,19 @@ private fun TopBar(gpsData: GpsData, onSettingsClick: () -> Unit) {
             style = MaterialTheme.typography.labelMedium,
             color = color,
             fontWeight = FontWeight.Bold,
+            maxLines = 1, softWrap = false,
             modifier = Modifier.weight(1f)
+        )
+        Text(
+            formatFlightTime(flightState),
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
+            color = if (flightState.phase == FlightPhase.AIRBORNE)
+                MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            maxLines = 1, softWrap = false,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            modifier = Modifier.weight(1f),
         )
         IconButton(onClick = onSettingsClick, modifier = Modifier.size(32.dp)) {
             Icon(Icons.Filled.Settings, contentDescription = null,
@@ -248,6 +244,23 @@ private fun TopBar(gpsData: GpsData, onSettingsClick: () -> Unit) {
                 modifier = Modifier.size(18.dp))
         }
     }
+}
+
+private val zuluFormatter by lazy {
+    java.text.SimpleDateFormat("HH:mm:ss'Z'", java.util.Locale.US).apply {
+        timeZone = java.util.TimeZone.getTimeZone("UTC")
+    }
+}
+
+private fun formatZulu(ms: Long): String = zuluFormatter.format(java.util.Date(ms))
+
+private fun formatFlightTime(state: com.gpsplane.app.data.FlightTimerState): String {
+    if (state.phase == FlightPhase.GROUND) return "GROUND"
+    val totalSec = state.elapsedMs / 1000L
+    val h = totalSec / 3600
+    val m = (totalSec % 3600) / 60
+    val s = totalSec % 60
+    return "T+%02d:%02d:%02d".format(h, m, s)
 }
 
 // ── Sky plot ────────────────────────────────────────────────────────────────
@@ -295,19 +308,28 @@ private fun SkyPlot(
                 strokeWidth = if (isCardinal) 2f else 1f)
         }
 
-        // Cardinal labels: N@top(90°), E@right(0°), S@bottom(270°), W@left(180°)
+        // Cardinal labels: N@top(90°), E@right(0°), S@bottom(270°), W@left(180°).
+        // Paint.Align.CENTER handles horizontal centering; for vertical centering
+        // we offset the baseline by -(ascent+descent)/2 so the glyph's visual
+        // center sits on the target point.
+        val cardinalPaint = android.graphics.Paint().apply {
+            color = 0x99FFFFFF.toInt()
+            textSize = 12.dp.toPx()
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+            isFakeBoldText = true
+        }
+        val baselineOffset = -(cardinalPaint.fontMetrics.ascent + cardinalPaint.fontMetrics.descent) / 2f
         val labels = mapOf(90f to "N", 0f to "E", 270f to "S", 180f to "W")
         for ((deg, label) in labels) {
             val rad = Math.toRadians(deg.toDouble()).toFloat()
             val lr = r + 14.dp.toPx()
             drawContext.canvas.nativeCanvas.drawText(
-                label, cx + lr * kotlin.math.cos(rad) - 7.dp.toPx(),
-                cy - lr * kotlin.math.sin(rad) + 5.dp.toPx(),
-                android.graphics.Paint().apply {
-                    color = 0x99FFFFFF.toInt()
-                    textSize = 12.dp.toPx()
-                    textAlign = android.graphics.Paint.Align.CENTER
-                })
+                label,
+                cx + lr * kotlin.math.cos(rad),
+                cy - lr * kotlin.math.sin(rad) + baselineOffset,
+                cardinalPaint
+            )
         }
 
         // ── Artificial horizon (pitch / roll) ───────────────────────────
@@ -425,7 +447,7 @@ private fun CompactSignalBars(satellites: List<SatelliteInfo>) {
     if (grouped.isEmpty()) return
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         grouped.forEach { (constellation, pair) ->
@@ -487,16 +509,58 @@ private fun LightMetricRow(
     }
 }
 
-// ── Instrument row (2 columns, dual-unit) ───────────────────────────────────
+// ── Primary instrument row (Speed | Altitude | V/S | Track) ────────────────
 
 @Composable
-private fun InstrumentRow(
-    labelL: String, valL1: String, unitL1: String, valL2: String, unitL2: String,
-    labelR: String, valR1: String, unitR1: String, valR2: String, unitR2: String,
+private fun PrimaryInstrumentRow(
+    gpsData: GpsData,
+    attData: AttitudeData,
+    unitConfig: UnitConfig,
+    declinationDeg: Float,
 ) {
+    // GPS track is always true-north; convert only when MAG is selected.
+    val shownBearing = if (gpsData.bearing < 0) gpsData.bearing
+        else when (unitConfig.headingRef) {
+            HeadingRef.TRUE -> gpsData.bearing
+            HeadingRef.MAG -> MagneticDeclination.trueToMagnetic(gpsData.bearing, declinationDeg)
+        }
+    val bearingStr = if (shownBearing < 0) "—" else "%.0f°".format(shownBearing)
+    val cardinalStr = if (shownBearing < 0) "" else headingToCardinal(shownBearing)
+    val azimuth = attData.azimuth.takeIf { attData.hasAzimuth }
+
     Row(modifier = Modifier.fillMaxWidth()) {
-        InstrumentCell(labelL, valL1, unitL1, valL2, unitL2, Modifier.weight(1f))
-        InstrumentCell(labelR, valR1, unitR1, valR2, unitR2, Modifier.weight(1f))
+        InstrumentCell(
+            label = "SPEED",
+            v1 = fmtSpd(gpsData.speedMps, unitConfig.speed1),
+            u1 = unitConfig.speed1.label,
+            v2 = fmtSpd(gpsData.speedMps, unitConfig.speed2),
+            u2 = unitConfig.speed2.label,
+            modifier = Modifier.weight(1f),
+        )
+        InstrumentCell(
+            label = "ALTITUDE",
+            v1 = fmtAlt(gpsData.altitudeMeters, unitConfig.alt1),
+            u1 = unitConfig.alt1.label,
+            v2 = fmtAlt(gpsData.altitudeMeters, unitConfig.alt2),
+            u2 = unitConfig.alt2.label,
+            modifier = Modifier.weight(1f),
+        )
+        InstrumentCell(
+            label = "VERT SPD",
+            v1 = fmtVS(gpsData.verticalSpeedMps, unitConfig.vs1),
+            u1 = unitConfig.vs1.label,
+            v2 = fmtVS(gpsData.verticalSpeedMps, unitConfig.vs2),
+            u2 = unitConfig.vs2.label,
+            modifier = Modifier.weight(1f),
+        )
+        InstrumentCell(
+            label = "TRACK·${unitConfig.headingRef.label}",
+            v1 = bearingStr,
+            u1 = cardinalStr,
+            v2 = azimuth?.let { "%.0f°".format(it) } ?: "",
+            u2 = if (azimuth != null) "compass" else "",
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -510,7 +574,7 @@ private fun InstrumentCell(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
             maxLines = 1, softWrap = false)
         Text(v1,
-            style = MaterialTheme.typography.headlineSmall.copy(
+            style = MaterialTheme.typography.titleLarge.copy(
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
             maxLines = 1, softWrap = false)
         Text(u1,
@@ -525,36 +589,6 @@ private fun InstrumentCell(
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
             maxLines = 1, softWrap = false)
-    }
-}
-
-// ── V/S + Heading row ──────────────────────────────────────────────────────
-
-// ── Heading cell ─────────────────────────────────────────────────────────
-
-@Composable
-private fun HeadingCell(modifier: Modifier, bearing: Float, phoneAzimuth: Float?) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("TRACK",
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
-        Text("%.0f°".format(bearing),
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold))
-        Text(headingToCardinal(bearing),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary)
-        if (phoneAzimuth != null && !phoneAzimuth.isNaN()) {
-            Text("COMPASS",
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
-            Text("%.0f°".format(phoneAzimuth),
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-        }
     }
 }
 
@@ -640,12 +674,15 @@ private fun BottomRow(gpsData: GpsData, uc: UnitConfig) {
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
             maxLines = 1)
         Text(
-            "±%.1f m   %s".format(
-                gpsData.accuracyMeters,
+            "UTC %s   %s   ±%.1f m".format(
+                formatZulu(gpsData.timestampMs),
                 java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-                    .format(java.util.Date(gpsData.timestampMs))),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
+                    .format(java.util.Date(gpsData.timestampMs)),
+                gpsData.accuracyMeters),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+            maxLines = 1)
     }
 }
 
@@ -724,6 +761,8 @@ private fun UnitConfigSheet(
                 { onConfigChange(config.copy(vs1 = it)) }, { onConfigChange(config.copy(vs2 = it)) })
             DualUnitRow("Coordinates", CoordFormat.entries, config.coord1, config.coord2, { it.label },
                 { onConfigChange(config.copy(coord1 = it)) }, { onConfigChange(config.copy(coord2 = it)) })
+            SingleUnitRow("Heading Reference", HeadingRef.entries, config.headingRef, { it.label },
+                { onConfigChange(config.copy(headingRef = it)) })
         }
     }
 }
@@ -741,6 +780,26 @@ private fun <T> DualUnitRow(
                 FilterChip(
                     selected = opt == sel1 || opt == sel2,
                     onClick = { onChange2(sel1); onChange1(opt) },
+                    label = { Text(labelFn(opt), fontSize = 12.sp, maxLines = 1) },
+                    modifier = Modifier.height(32.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun <T> SingleUnitRow(
+    title: String, options: List<T>, selected: T,
+    labelFn: (T) -> String, onChange: (T) -> Unit,
+) {
+    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            options.forEach { opt ->
+                FilterChip(
+                    selected = opt == selected,
+                    onClick = { onChange(opt) },
                     label = { Text(labelFn(opt), fontSize = 12.sp, maxLines = 1) },
                     modifier = Modifier.height(32.dp))
             }
