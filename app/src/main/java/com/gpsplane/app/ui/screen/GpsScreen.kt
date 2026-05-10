@@ -193,54 +193,13 @@ fun GpsScreen(
 
         Spacer(Modifier.height(6.dp))
 
-        // ── Speed | Altitude ──
-        InstrumentRow(
-            labelL = "SPEED",
-            valL1 = fmtSpd(gpsData.speedMps, unitConfig.speed1),
-            unitL1 = unitConfig.speed1.label,
-            valL2 = fmtSpd(gpsData.speedMps, unitConfig.speed2),
-            unitL2 = unitConfig.speed2.label,
-            labelR = "ALTITUDE",
-            valR1 = fmtAlt(gpsData.altitudeMeters, unitConfig.alt1),
-            unitR1 = unitConfig.alt1.label,
-            valR2 = fmtAlt(gpsData.altitudeMeters, unitConfig.alt2),
-            unitR2 = unitConfig.alt2.label,
+        // ── Speed | Altitude | Vert Spd | Track ──
+        PrimaryInstrumentRow(
+            gpsData = gpsData,
+            attData = attData,
+            unitConfig = unitConfig,
+            declinationDeg = declinationDeg,
         )
-
-        Spacer(Modifier.height(6.dp))
-
-        // ── V/S | Heading ──
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // V/S (dual-unit, left)
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("VERT SPD",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
-                Text(fmtVS(gpsData.verticalSpeedMps, unitConfig.vs1),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold))
-                Text(unitConfig.vs1.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary)
-                Text(fmtVS(gpsData.verticalSpeedMps, unitConfig.vs2),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                Text(unitConfig.vs2.label,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
-            }
-            // Heading (right, with phone azimuth as sub-unit)
-            HeadingCell(
-                modifier = Modifier.weight(1f),
-                bearing = gpsData.bearing,
-                phoneAzimuth = attData.azimuth.takeIf { attData.hasAzimuth },
-                headingRef = unitConfig.headingRef,
-                declinationDeg = declinationDeg,
-            )
-        }
 
         Spacer(Modifier.height(6.dp))
 
@@ -571,16 +530,58 @@ private fun LightMetricRow(
     }
 }
 
-// ── Instrument row (2 columns, dual-unit) ───────────────────────────────────
+// ── Primary instrument row (Speed | Altitude | V/S | Track) ────────────────
 
 @Composable
-private fun InstrumentRow(
-    labelL: String, valL1: String, unitL1: String, valL2: String, unitL2: String,
-    labelR: String, valR1: String, unitR1: String, valR2: String, unitR2: String,
+private fun PrimaryInstrumentRow(
+    gpsData: GpsData,
+    attData: AttitudeData,
+    unitConfig: UnitConfig,
+    declinationDeg: Float,
 ) {
+    // GPS track is always true-north; convert only when MAG is selected.
+    val shownBearing = if (gpsData.bearing < 0) gpsData.bearing
+        else when (unitConfig.headingRef) {
+            HeadingRef.TRUE -> gpsData.bearing
+            HeadingRef.MAG -> MagneticDeclination.trueToMagnetic(gpsData.bearing, declinationDeg)
+        }
+    val bearingStr = if (shownBearing < 0) "—" else "%.0f°".format(shownBearing)
+    val cardinalStr = if (shownBearing < 0) "" else headingToCardinal(shownBearing)
+    val azimuth = attData.azimuth.takeIf { attData.hasAzimuth }
+
     Row(modifier = Modifier.fillMaxWidth()) {
-        InstrumentCell(labelL, valL1, unitL1, valL2, unitL2, Modifier.weight(1f))
-        InstrumentCell(labelR, valR1, unitR1, valR2, unitR2, Modifier.weight(1f))
+        InstrumentCell(
+            label = "SPEED",
+            v1 = fmtSpd(gpsData.speedMps, unitConfig.speed1),
+            u1 = unitConfig.speed1.label,
+            v2 = fmtSpd(gpsData.speedMps, unitConfig.speed2),
+            u2 = unitConfig.speed2.label,
+            modifier = Modifier.weight(1f),
+        )
+        InstrumentCell(
+            label = "ALTITUDE",
+            v1 = fmtAlt(gpsData.altitudeMeters, unitConfig.alt1),
+            u1 = unitConfig.alt1.label,
+            v2 = fmtAlt(gpsData.altitudeMeters, unitConfig.alt2),
+            u2 = unitConfig.alt2.label,
+            modifier = Modifier.weight(1f),
+        )
+        InstrumentCell(
+            label = "VERT SPD",
+            v1 = fmtVS(gpsData.verticalSpeedMps, unitConfig.vs1),
+            u1 = unitConfig.vs1.label,
+            v2 = fmtVS(gpsData.verticalSpeedMps, unitConfig.vs2),
+            u2 = unitConfig.vs2.label,
+            modifier = Modifier.weight(1f),
+        )
+        InstrumentCell(
+            label = "TRACK·${unitConfig.headingRef.label}",
+            v1 = bearingStr,
+            u1 = cardinalStr,
+            v2 = azimuth?.let { "%.0f°".format(it) } ?: "",
+            u2 = if (azimuth != null) "compass" else "",
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -594,7 +595,7 @@ private fun InstrumentCell(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
             maxLines = 1, softWrap = false)
         Text(v1,
-            style = MaterialTheme.typography.headlineSmall.copy(
+            style = MaterialTheme.typography.titleLarge.copy(
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
             maxLines = 1, softWrap = false)
         Text(u1,
@@ -609,54 +610,6 @@ private fun InstrumentCell(
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
             maxLines = 1, softWrap = false)
-    }
-}
-
-// ── V/S + Heading row ──────────────────────────────────────────────────────
-
-// ── Heading cell ─────────────────────────────────────────────────────────
-
-@Composable
-private fun HeadingCell(
-    modifier: Modifier,
-    bearing: Float,
-    phoneAzimuth: Float?,
-    headingRef: HeadingRef,
-    declinationDeg: Float,
-) {
-    // GPS track is always true-north; convert only when MAG is selected.
-    val shownBearing = if (bearing < 0) bearing
-        else when (headingRef) {
-            HeadingRef.TRUE -> bearing
-            HeadingRef.MAG -> MagneticDeclination.trueToMagnetic(bearing, declinationDeg)
-        }
-    val label = "TRACK·${headingRef.label}"
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(label,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-            maxLines = 1, softWrap = false)
-        Text("%.0f°".format(shownBearing),
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-            maxLines = 1, softWrap = false)
-        Text(headingToCardinal(shownBearing),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1, softWrap = false)
-        if (phoneAzimuth != null && !phoneAzimuth.isNaN()) {
-            Text("COMPASS",
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                maxLines = 1, softWrap = false)
-            Text("%.0f°".format(phoneAzimuth),
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                maxLines = 1, softWrap = false)
-        }
     }
 }
 
