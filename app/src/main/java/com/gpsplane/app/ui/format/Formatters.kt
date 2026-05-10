@@ -2,6 +2,7 @@ package com.gpsplane.app.ui.format
 
 import com.gpsplane.app.data.FlightPhase
 import com.gpsplane.app.data.FlightTimerState
+import com.gpsplane.app.data.SunTimes
 import com.gpsplane.app.util.UnitConverter
 
 /**
@@ -66,4 +67,23 @@ internal fun formatFlightTime(state: FlightTimerState): String {
     val m = (totalSec % 3600) / 60
     val s = totalSec % 60
     return "T+%02d:%02d:%02d".format(h, m, s)
+}
+
+private val sunTimeFormatter by lazy {
+    java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).apply {
+        timeZone = java.util.TimeZone.getTimeZone("UTC")
+    }
+}
+
+/**
+ * "SR HH:MMZ  SS HH:MMZ" — sunrise/sunset at the last GPS position.
+ * "SR --  SS --" on polar night, "SR ++  SS ++" on polar day, and the
+ * same dashes before we've computed anything.
+ */
+internal fun formatSunTimes(times: SunTimes): String {
+    if (times.isPolarDay) return "SR ++  SS ++"
+    if (times.isPolarNight) return "SR --  SS --"
+    val sr = times.sunriseUtcMs?.let { sunTimeFormatter.format(java.util.Date(it)) + "Z" } ?: "--"
+    val ss = times.sunsetUtcMs?.let { sunTimeFormatter.format(java.util.Date(it)) + "Z" } ?: "--"
+    return "SR $sr  SS $ss"
 }

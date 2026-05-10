@@ -131,4 +131,29 @@ class FormattersTest {
         val state = FlightTimerState(FlightPhase.AIRBORNE, 5_000L)
         assertThat(formatFlightTime(state)).isEqualTo("T+00:00:05")
     }
+
+    // ── formatSunTimes ─────────────────────────────────────────────────
+
+    @Test
+    fun `formatSunTimes renders both times in HH mm Z`() {
+        // 2026-06-21T09:23:00Z  and  2026-06-21T22:22:00Z
+        val sunrise = 1_782_033_780_000L
+        val sunset = 1_782_080_520_000L
+        val times = com.gpsplane.app.data.SunTimes(sunriseUtcMs = sunrise, sunsetUtcMs = sunset)
+        assertThat(formatSunTimes(times)).isEqualTo("SR 09:23Z  SS 22:22Z")
+    }
+
+    @Test
+    fun `formatSunTimes shows double-dash on polar night`() {
+        val night = com.gpsplane.app.data.SunTimes.Companion.let {
+            com.gpsplane.app.data.SunPositionNoaa.compute(latDeg = 80.0, lonDeg = 0.0, referenceUtcMs = 1_671_537_600_000L) // 2022-12-20
+        }
+        assertThat(formatSunTimes(night)).isEqualTo("SR --  SS --")
+    }
+
+    @Test
+    fun `formatSunTimes shows double-plus on polar day`() {
+        val day = com.gpsplane.app.data.SunPositionNoaa.compute(latDeg = 80.0, lonDeg = 0.0, referenceUtcMs = 1_655_769_600_000L) // 2022-06-21
+        assertThat(formatSunTimes(day)).isEqualTo("SR ++  SS ++")
+    }
 }

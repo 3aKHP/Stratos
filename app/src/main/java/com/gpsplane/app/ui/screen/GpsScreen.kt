@@ -19,6 +19,7 @@ import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.data.FlightTimer
 import com.gpsplane.app.data.GForceRange
+import com.gpsplane.app.data.SunTimes
 import com.gpsplane.app.ui.component.BaroRow
 import com.gpsplane.app.ui.component.BottomRow
 import com.gpsplane.app.ui.component.CompactSignalBars
@@ -40,6 +41,7 @@ fun GpsScreen(
     flightSnap: FlightTimer.Snapshot,
     declinationDeg: Float,
     gForce: GForceRange,
+    sunTimes: SunTimes,
     recordingEnabled: Boolean,
     onRecordingEnabledChange: (Boolean) -> Unit,
     immersive: Boolean,
@@ -84,6 +86,7 @@ fun GpsScreen(
         TopBar(
             gpsData = gpsData,
             flightState = FlightTimer.display(flightSnap, nowMs),
+            sunTimes = sunTimes,
             onSettingsClick = { showConfig = true },
         )
 
