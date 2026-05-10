@@ -53,55 +53,20 @@ import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.PressureMath
 import com.gpsplane.app.data.SkyProjection
 import com.gpsplane.app.data.model.SatelliteInfo
+import com.gpsplane.app.ui.format.AltUnit
+import com.gpsplane.app.ui.format.CoordFormat
+import com.gpsplane.app.ui.format.HeadingRef
+import com.gpsplane.app.ui.format.SpeedUnit
+import com.gpsplane.app.ui.format.UnitConfig
+import com.gpsplane.app.ui.format.VSpeedUnit
+import com.gpsplane.app.ui.format.fmtAlt
+import com.gpsplane.app.ui.format.fmtCoord
+import com.gpsplane.app.ui.format.fmtSpd
+import com.gpsplane.app.ui.format.fmtVS
+import com.gpsplane.app.ui.format.formatFlightTime
+import com.gpsplane.app.ui.format.formatZulu
+import com.gpsplane.app.ui.format.headingToCardinal
 import com.gpsplane.app.util.UnitConverter
-
-// ── Unit enums ─────────────────────────────────────────────────────────────
-
-private enum class SpeedUnit(val label: String) { KNOTS("kn"), KMH("km/h"), MPH("mph"), MPS("m/s") }
-private enum class AltUnit(val label: String) { FEET("ft"), METERS("m") }
-private enum class VSpeedUnit(val label: String) { FT_MIN("ft/min"), M_S("m/s") }
-private enum class CoordFormat(val label: String) { DECIMAL("Dec"), DMS("DMS") }
-private enum class HeadingRef(val label: String) { MAG("MAG"), TRUE("TRUE") }
-
-private data class UnitConfig(
-    val speed1: SpeedUnit = SpeedUnit.KNOTS,
-    val speed2: SpeedUnit = SpeedUnit.KMH,
-    val alt1: AltUnit = AltUnit.FEET,
-    val alt2: AltUnit = AltUnit.METERS,
-    val vs1: VSpeedUnit = VSpeedUnit.FT_MIN,
-    val vs2: VSpeedUnit = VSpeedUnit.M_S,
-    val coord1: CoordFormat = CoordFormat.DECIMAL,
-    val coord2: CoordFormat = CoordFormat.DMS,
-    val headingRef: HeadingRef = HeadingRef.MAG,
-)
-
-// ── Format helpers ─────────────────────────────────────────────────────────
-
-private fun fmtSpd(mps: Float, u: SpeedUnit) = when (u) {
-    SpeedUnit.KNOTS -> "%.0f".format(UnitConverter.mpsToKnots(mps))
-    SpeedUnit.KMH -> "%.0f".format(UnitConverter.mpsToKmh(mps))
-    SpeedUnit.MPH -> "%.0f".format(UnitConverter.mpsToMph(mps))
-    SpeedUnit.MPS -> "%.1f".format(mps)
-}
-
-private fun fmtAlt(m: Double, u: AltUnit) = when (u) {
-    AltUnit.FEET -> "%.0f".format(UnitConverter.metersToFeet(m))
-    AltUnit.METERS -> "%.0f".format(m)
-}
-
-private fun fmtVS(mps: Float, u: VSpeedUnit) = when (u) {
-    VSpeedUnit.FT_MIN -> "%+.0f".format(UnitConverter.mpsToFtMin(mps))
-    VSpeedUnit.M_S -> "%+.1f".format(mps)
-}
-
-private fun fmtCoord(lat: Double, lon: Double, f: CoordFormat): Pair<String, String> = when (f) {
-    CoordFormat.DECIMAL -> Pair(
-        "%.6f° %s".format(lat, if (lat >= 0) "N" else "S"),
-        "%.6f° %s".format(lon, if (lon >= 0) "E" else "W"))
-    CoordFormat.DMS -> Pair(
-        UnitConverter.decimalToDms(lat) + if (lat >= 0) " N" else " S",
-        UnitConverter.decimalToDms(lon) + if (lon >= 0) " E" else " W")
-}
 
 // ── Main screen ────────────────────────────────────────────────────────────
 
@@ -266,23 +231,6 @@ private fun TopBar(
                 modifier = Modifier.size(18.dp))
         }
     }
-}
-
-private val zuluFormatter by lazy {
-    java.text.SimpleDateFormat("HH:mm:ss'Z'", java.util.Locale.US).apply {
-        timeZone = java.util.TimeZone.getTimeZone("UTC")
-    }
-}
-
-private fun formatZulu(ms: Long): String = zuluFormatter.format(java.util.Date(ms))
-
-private fun formatFlightTime(state: com.gpsplane.app.data.FlightTimerState): String {
-    if (state.phase == FlightPhase.GROUND) return "GROUND"
-    val totalSec = state.elapsedMs / 1000L
-    val h = totalSec / 3600
-    val m = (totalSec % 3600) / 60
-    val s = totalSec % 60
-    return "T+%02d:%02d:%02d".format(h, m, s)
 }
 
 // ── Sky plot ────────────────────────────────────────────────────────────────
@@ -740,16 +688,6 @@ private fun BottomRow(gpsData: GpsData, uc: UnitConfig) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-private fun headingToCardinal(h: Float) = when {
-    h < 0 -> "—"
-    h < 11.25 || h >= 348.75 -> "N"
-    h < 33.75 -> "NNE"; h < 56.25 -> "NE"; h < 78.75 -> "ENE"
-    h < 101.25 -> "E"; h < 123.75 -> "ESE"; h < 146.25 -> "SE"
-    h < 168.75 -> "SSE"; h < 191.25 -> "S"; h < 213.75 -> "SSW"
-    h < 236.25 -> "SW"; h < 258.75 -> "WSW"; h < 281.25 -> "W"
-    h < 303.75 -> "WNW"; h < 326.25 -> "NW"; else -> "NNW"
-}
 
 private fun constellationColor(t: Int) = when (t) {
     GnssStatus.CONSTELLATION_GPS -> Color(0xFF4CAF50)
