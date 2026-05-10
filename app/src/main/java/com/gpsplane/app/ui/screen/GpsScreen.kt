@@ -176,6 +176,7 @@ fun GpsScreen(
             pitch = attData.pitch,
             roll = attData.roll,
             rotationDeg = rotationDeg,
+            declinationDeg = declinationDeg,
             showOrientationFan = showOrientationFan,
             showNoHeadingLabel = showNoHeadingLabel,
             modifier = Modifier
@@ -311,6 +312,7 @@ private fun SkyPlot(
     pitch: Float,
     roll: Float,
     rotationDeg: Float,
+    declinationDeg: Float,
     showOrientationFan: Boolean,
     showNoHeadingLabel: Boolean,
     modifier: Modifier
@@ -419,6 +421,34 @@ private fun SkyPlot(
                 cx + lr * kotlin.math.cos(rad),
                 cy - lr * kotlin.math.sin(rad) + baselineOffset,
                 cardinalPaint
+            )
+        }
+
+        // ── Magnetic north marker ───────────────────────────────────────
+        // Red "N" at declinationDeg relative to true north. The gap between
+        // this glyph and the upright white "N" is the local declination —
+        // aviation convention: declination east is positive, and magnetic
+        // north sits clockwise from true north by that amount.
+        if (!declinationDeg.isNaN()) {
+            val magNorthPaint = android.graphics.Paint().apply {
+                color = 0xCCFF5252.toInt()
+                textSize = 10.dp.toPx()
+                textAlign = android.graphics.Paint.Align.CENTER
+                isAntiAlias = true
+                isFakeBoldText = true
+            }
+            val magBaselineOffset =
+                -(magNorthPaint.fontMetrics.ascent + magNorthPaint.fontMetrics.descent) / 2f
+            // Magnetic N is at compass bearing = declinationDeg (east is +CW).
+            // World-math position: 90 - declinationDeg. Dial rotation applied
+            // the same way as for true N.
+            val magScreenDeg = (90f - declinationDeg) - rotationDeg
+            val magRad = Math.toRadians(magScreenDeg.toDouble()).toFloat()
+            drawContext.canvas.nativeCanvas.drawText(
+                "N",
+                cx + lr * kotlin.math.cos(magRad),
+                cy - lr * kotlin.math.sin(magRad) + magBaselineOffset,
+                magNorthPaint
             )
         }
 
