@@ -332,9 +332,12 @@ private fun SkyPlot(
             style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
 
         // ── Heading-stabilized layer ────────────────────────────────────
-        // Canvas.rotate is clockwise-positive; passing -rotationDeg puts
-        // the world bearing `rotationDeg` at the top of the canvas.
-        withTransform({ rotate(-rotationDeg, Offset(cx, cy)) }) {
+        // Empirically, rotate(+rotationDeg) — not -rotationDeg — produces
+        // the expected behavior on device: rotating the phone CCW makes
+        // the whole dial (satellites + cardinals) rotate CW on screen so
+        // the world stays anchored. The math-on-paper derivation kept
+        // disagreeing with what the device shows; trust the device.
+        withTransform({ rotate(rotationDeg, Offset(cx, cy)) }) {
 
             // Tick marks (every 5°) around perimeter.
             // Math-convention angle: 90°=N (up), 0°=E (right), 270°=S, 180°=W.
@@ -411,9 +414,10 @@ private fun SkyPlot(
         val labels = mapOf(90f to "N", 0f to "E", 270f to "S", 180f to "W")
         val lr = r + 14.dp.toPx()
         for ((worldDeg, label) in labels) {
-            // worldDeg is math-convention (90=N); rotationDeg is compass bearing
-            // (0=N, +CW). To keep math N at screen-top when rotationDeg=0, we
-            // subtract rotationDeg (compass CW == math CCW as seen on screen).
+            // Sign matches the rotation block: we flipped rotate(-…) → rotate(+…)
+            // after device testing showed the dial was turning the wrong way,
+            // so the cardinal offset flips too (worldDeg - rotationDeg) to
+            // stay in lockstep with the satellites.
             val screenDeg = worldDeg - rotationDeg
             val rad = Math.toRadians(screenDeg.toDouble()).toFloat()
             drawContext.canvas.nativeCanvas.drawText(
@@ -439,9 +443,7 @@ private fun SkyPlot(
             }
             val magBaselineOffset =
                 -(magNorthPaint.fontMetrics.ascent + magNorthPaint.fontMetrics.descent) / 2f
-            // Magnetic N is at compass bearing = declinationDeg (east is +CW).
-            // World-math position: 90 - declinationDeg. Dial rotation applied
-            // the same way as for true N.
+            // Same transform as the true cardinals (worldDeg - rotationDeg).
             val magScreenDeg = (90f - declinationDeg) - rotationDeg
             val magRad = Math.toRadians(magScreenDeg.toDouble()).toFloat()
             drawContext.canvas.nativeCanvas.drawText(
