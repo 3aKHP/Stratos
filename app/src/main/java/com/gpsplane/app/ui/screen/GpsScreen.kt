@@ -142,7 +142,7 @@ fun GpsScreen(gpsData: GpsData, attData: AttitudeData, envData: EnvironmentData)
                 .padding(horizontal = 16.dp)
         )
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(10.dp))
 
         // ── Compact signal bars ──
         CompactSignalBars(gpsData.satellites)
@@ -434,7 +434,7 @@ private fun CompactSignalBars(satellites: List<SatelliteInfo>) {
     if (grouped.isEmpty()) return
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         grouped.forEach { (constellation, pair) ->
