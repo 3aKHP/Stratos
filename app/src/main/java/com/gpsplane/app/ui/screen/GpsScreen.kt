@@ -39,8 +39,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +51,7 @@ import com.gpsplane.app.data.FlightPhase
 import com.gpsplane.app.data.FlightTimer
 import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.PressureMath
+import com.gpsplane.app.data.SkyProjection
 import com.gpsplane.app.data.model.SatelliteInfo
 import com.gpsplane.app.util.UnitConverter
 
@@ -150,7 +149,6 @@ fun GpsScreen(
 
         Spacer(Modifier.height(6.dp))
 
-        // ── Sky plot ──
         // ── Sky plot ──
         val hasAzimuth = attData.hasAzimuth && !attData.azimuth.isNaN()
         val isMoving = gpsData.speedMps >= 1.5f
@@ -292,18 +290,20 @@ private fun formatFlightTime(state: com.gpsplane.app.data.FlightTimerState): Str
 /**
  * Heading-stabilized sky plot.
  *
- * [rotationDeg] is the world compass bearing placed at the top of the dial:
+ * [rotationDeg] is the world compass bearing placed at the top of the
+ * dial:
  *   0°  = NORTH UP
  *   track = TRK UP (in motion)
  *   phone azimuth = HDG UP (stationary)
  *
- * Internally everything compass-relative (ticks, cardinals, satellites,
- * orientation fan) is drawn in world coordinates and transformed by a
- * single Canvas rotation, so satellites stay anchored to their real sky
- * position while N/S/E/W sweep to reflect how the dial is oriented.
+ * Every angular element (ticks, cardinals, satellites, magnetic-north
+ * marker, orientation fan) routes through [SkyProjection] — a single
+ * pure function covered by hard-coded ground-truth tests. No Canvas
+ * rotation transform is involved, so there is no "trust the device"
+ * moment: the tests fix the signs.
  *
  * The artificial horizon (pitch/roll) belongs to the gravity frame and
- * must NOT rotate with heading — it stays aligned to the screen.
+ * stays aligned to the screen.
  */
 @Composable
 private fun SkyPlot(
@@ -322,7 +322,7 @@ private fun SkyPlot(
         val cy = size.height / 2
         val r = minOf(cx, cy) - 4.dp.toPx()
 
-        // ── Background (rotation-invariant) ─────────────────────────────
+        // ── Rings and outer stroke (rotation-invariant) ─────────────────
 
         drawCircle(Color.White.copy(alpha = 0.08f), r, Offset(cx, cy))
         for (el in listOf(0.33f, 0.66f)) {
@@ -331,78 +331,71 @@ private fun SkyPlot(
         drawCircle(Color.White.copy(alpha = 0.2f), r, Offset(cx, cy),
             style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
 
-        // ── Heading-stabilized layer ────────────────────────────────────
-        // Empirically, rotate(+rotationDeg) — not -rotationDeg — produces
-        // the expected behavior on device: rotating the phone CCW makes
-        // the whole dial (satellites + cardinals) rotate CW on screen so
-        // the world stays anchored. The math-on-paper derivation kept
-        // disagreeing with what the device shows; trust the device.
-        withTransform({ rotate(rotationDeg, Offset(cx, cy)) }) {
+        // ── Tick marks every 5° ─────────────────────────────────────────
 
-            // Tick marks (every 5°) around perimeter.
-            // Math-convention angle: 90°=N (up), 0°=E (right), 270°=S, 180°=W.
-            for (i in 0..71) {
-                val deg = i * 5f
-                val rad = Math.toRadians(deg.toDouble()).toFloat()
-                val isCardinal = i % 18 == 0
-                val len = if (isCardinal) 10.dp.toPx() else 5.dp.toPx()
-                val outer = r
-                val inner = outer - len
-                val a = if (isCardinal) 0.45f else 0.2f
-                drawLine(Color.White.copy(alpha = a),
-                    Offset(cx + outer * kotlin.math.cos(rad), cy - outer * kotlin.math.sin(rad)),
-                    Offset(cx + inner * kotlin.math.cos(rad), cy - inner * kotlin.math.sin(rad)),
-                    strokeWidth = if (isCardinal) 2f else 1f)
-            }
-
-            // Phone orientation fan. World coordinate: compass azimuth of the
-            // phone's top edge. Under the rotation transform, when the dial
-            // is TRK-UP the fan automatically points to the phone's heading
-            // relative to the track — no manual subtraction needed.
-            if (showOrientationFan && azimuth != null && !azimuth.isNaN()) {
-                val azRad = Math.toRadians(azimuth.toDouble()).toFloat()
-                val haRad = Math.toRadians(15.0).toFloat()
-                val fanRadius = r * 0.7f
-                val fanRect = Rect(cx - fanRadius, cy - fanRadius, cx + fanRadius, cy + fanRadius)
-                val startAngleDeg = azimuth - 15f - 90f
-                val fanPath = Path().apply {
-                    moveTo(cx, cy)
-                    arcTo(fanRect, startAngleDeg, 30f, false)
-                    close()
-                }
-                drawPath(fanPath, Color.White.copy(alpha = 0.12f))
-                drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
-                    Offset(cx + fanRadius * kotlin.math.sin(azRad - haRad),
-                           cy - fanRadius * kotlin.math.cos(azRad - haRad)), strokeWidth = 1f)
-                drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
-                    Offset(cx + fanRadius * kotlin.math.sin(azRad + haRad),
-                           cy - fanRadius * kotlin.math.cos(azRad + haRad)), strokeWidth = 1f)
-            }
-
-            // Satellites — sat.azimuth is already a world compass bearing.
-            satellites.forEach { sat ->
-                val el = sat.elevation.coerceIn(0f, 89f)
-                val azRad = Math.toRadians(sat.azimuth.toDouble()).toFloat()
-                val dist = r * (1f - el / 90f)
-                val sx = cx + dist * kotlin.math.sin(azRad)
-                val sy = cy - dist * kotlin.math.cos(azRad)
-                val c = constellationColor(sat.constellationType)
-                val alpha = if (sat.usedInFix) 1f else 0.4f
-                val sr = (3.5f + sat.cn0DbHz / 12f).coerceIn(3f, 7f)
-
-                if (sat.usedInFix) {
-                    drawCircle(c.copy(alpha = 0.35f), sr + 1.5f, Offset(sx, sy))
-                }
-                drawCircle(c.copy(alpha = alpha), sr, Offset(sx, sy))
-            }
+        for (i in 0..71) {
+            val worldAz = i * 5f
+            val isCardinal = i % 18 == 0
+            val len = if (isCardinal) 10.dp.toPx() else 5.dp.toPx()
+            val a = if (isCardinal) 0.45f else 0.2f
+            val (nx, ny) = SkyProjection.projectOnRing(worldAz, rotationDeg)
+            drawLine(Color.White.copy(alpha = a),
+                Offset(cx + nx * r, cy + ny * r),
+                Offset(cx + nx * (r - len), cy + ny * (r - len)),
+                strokeWidth = if (isCardinal) 2f else 1f)
         }
 
-        // Center dot (rotation-invariant).
+        // ── Phone orientation fan ───────────────────────────────────────
+        // Under TRK-UP this shows the phone's pointing relative to the
+        // flight direction. Under HDG-UP the fan would always be straight
+        // up, so the caller hides it. ±15° half-angle.
+
+        if (showOrientationFan && azimuth != null && !azimuth.isNaN()) {
+            val fanRadius = r * 0.7f
+            val (cxn, cyn) = SkyProjection.projectOnRing(azimuth, rotationDeg)
+            val (lxn, lyn) = SkyProjection.projectOnRing(azimuth - 15f, rotationDeg)
+            val (rxn, ryn) = SkyProjection.projectOnRing(azimuth + 15f, rotationDeg)
+            val cxPt = Offset(cx, cy)
+            val lPt = Offset(cx + lxn * fanRadius, cy + lyn * fanRadius)
+            val rPt = Offset(cx + rxn * fanRadius, cy + ryn * fanRadius)
+            // Triangle approximates the arc closely enough at ±15°.
+            val fanPath = Path().apply {
+                moveTo(cx, cy)
+                lineTo(lPt.x, lPt.y)
+                // Mid-ray to curve the triangle toward the arc midpoint.
+                lineTo(cx + cxn * fanRadius, cy + cyn * fanRadius)
+                lineTo(rPt.x, rPt.y)
+                close()
+            }
+            drawPath(fanPath, Color.White.copy(alpha = 0.12f))
+            drawLine(Color.White.copy(alpha = 0.25f), cxPt, lPt, strokeWidth = 1f)
+            drawLine(Color.White.copy(alpha = 0.25f), cxPt, rPt, strokeWidth = 1f)
+        }
+
+        // ── Satellites ──────────────────────────────────────────────────
+
+        satellites.forEach { sat ->
+            val (nx, ny) = SkyProjection.projectWithElevation(
+                sat.azimuth, sat.elevation, rotationDeg
+            )
+            val sx = cx + nx * r
+            val sy = cy + ny * r
+            val c = constellationColor(sat.constellationType)
+            val alpha = if (sat.usedInFix) 1f else 0.4f
+            val sr = (3.5f + sat.cn0DbHz / 12f).coerceIn(3f, 7f)
+
+            if (sat.usedInFix) {
+                drawCircle(c.copy(alpha = 0.35f), sr + 1.5f, Offset(sx, sy))
+            }
+            drawCircle(c.copy(alpha = alpha), sr, Offset(sx, sy))
+        }
+
+        // ── Centre dot ──────────────────────────────────────────────────
+
         drawCircle(Color.White.copy(alpha = 0.5f), 2.dp.toPx(), Offset(cx, cy))
 
-        // ── Cardinal labels (upright, so drawn in screen space) ─────────
-        // Position by world-deg - rotationDeg so the N/S/E/W follow the dial
-        // while the glyphs themselves stay readable.
+        // ── Cardinal labels (upright text) ──────────────────────────────
+
         val cardinalPaint = android.graphics.Paint().apply {
             color = 0x99FFFFFF.toInt()
             textSize = 12.dp.toPx()
@@ -410,29 +403,24 @@ private fun SkyPlot(
             isAntiAlias = true
             isFakeBoldText = true
         }
-        val baselineOffset = -(cardinalPaint.fontMetrics.ascent + cardinalPaint.fontMetrics.descent) / 2f
-        val labels = mapOf(90f to "N", 0f to "E", 270f to "S", 180f to "W")
+        val baselineOffset =
+            -(cardinalPaint.fontMetrics.ascent + cardinalPaint.fontMetrics.descent) / 2f
         val lr = r + 14.dp.toPx()
-        for ((worldDeg, label) in labels) {
-            // Sign matches the rotation block: we flipped rotate(-…) → rotate(+…)
-            // after device testing showed the dial was turning the wrong way,
-            // so the cardinal offset flips too (worldDeg - rotationDeg) to
-            // stay in lockstep with the satellites.
-            val screenDeg = worldDeg - rotationDeg
-            val rad = Math.toRadians(screenDeg.toDouble()).toFloat()
+        val cardinals = listOf(0f to "N", 90f to "E", 180f to "S", 270f to "W")
+        for ((worldAz, label) in cardinals) {
+            val (nx, ny) = SkyProjection.projectOnRing(worldAz, rotationDeg)
             drawContext.canvas.nativeCanvas.drawText(
                 label,
-                cx + lr * kotlin.math.cos(rad),
-                cy - lr * kotlin.math.sin(rad) + baselineOffset,
+                cx + nx * lr,
+                cy + ny * lr + baselineOffset,
                 cardinalPaint
             )
         }
 
         // ── Magnetic north marker ───────────────────────────────────────
-        // Red "N" at declinationDeg relative to true north. The gap between
-        // this glyph and the upright white "N" is the local declination —
-        // aviation convention: declination east is positive, and magnetic
-        // north sits clockwise from true north by that amount.
+        // declinationDeg is east-positive (GeomagneticField convention),
+        // so magnetic north sits at world compass bearing = declinationDeg.
+
         if (!declinationDeg.isNaN()) {
             val magNorthPaint = android.graphics.Paint().apply {
                 color = 0xCCFF5252.toInt()
@@ -443,13 +431,11 @@ private fun SkyPlot(
             }
             val magBaselineOffset =
                 -(magNorthPaint.fontMetrics.ascent + magNorthPaint.fontMetrics.descent) / 2f
-            // Same transform as the true cardinals (worldDeg - rotationDeg).
-            val magScreenDeg = (90f - declinationDeg) - rotationDeg
-            val magRad = Math.toRadians(magScreenDeg.toDouble()).toFloat()
+            val (nx, ny) = SkyProjection.projectOnRing(declinationDeg, rotationDeg)
             drawContext.canvas.nativeCanvas.drawText(
                 "N",
-                cx + lr * kotlin.math.cos(magRad),
-                cy - lr * kotlin.math.sin(magRad) + magBaselineOffset,
+                cx + nx * lr,
+                cy + ny * lr + magBaselineOffset,
                 magNorthPaint
             )
         }
@@ -469,7 +455,7 @@ private fun SkyPlot(
             )
         }
 
-        // ── Artificial horizon (gravity frame — NEVER rotate) ───────────
+        // ── Artificial horizon (gravity frame — never rotates) ──────────
 
         if (!pitch.isNaN() && !roll.isNaN()) {
             val rollRad = Math.toRadians(roll.toDouble()).toFloat()
