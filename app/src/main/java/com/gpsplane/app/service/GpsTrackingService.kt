@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import com.gpsplane.app.BuildConfig
 import com.gpsplane.app.MainActivity
 import com.gpsplane.app.R
 import com.gpsplane.app.data.AttitudeRepository
@@ -22,6 +23,7 @@ import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
+import com.gpsplane.app.data.track.TrackRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -61,18 +63,34 @@ class GpsTrackingService : Service() {
     private lateinit var gpsRepository: GpsRepository
     private lateinit var attitudeRepository: AttitudeRepository
     private lateinit var environmentRepository: EnvironmentRepository
+    private lateinit var trackRecorder: TrackRecorder
 
     private val _gps = MutableStateFlow(GpsData.EMPTY)
     private val _attitude = MutableStateFlow(AttitudeData.EMPTY)
     private val _environment = MutableStateFlow(EnvironmentData.EMPTY)
     private val _flight = MutableStateFlow(FlightTimer.Snapshot.INITIAL)
     private val _declinationDeg = MutableStateFlow(0f)
+    private val _recording = MutableStateFlow(false)
+    private val _recordingEnabled = MutableStateFlow(true)
 
     val gps: StateFlow<GpsData> get() = _gps.asStateFlow()
     val attitude: StateFlow<AttitudeData> get() = _attitude.asStateFlow()
     val environment: StateFlow<EnvironmentData> get() = _environment.asStateFlow()
     val flight: StateFlow<FlightTimer.Snapshot> get() = _flight.asStateFlow()
     val declinationDeg: StateFlow<Float> get() = _declinationDeg.asStateFlow()
+    val recording: StateFlow<Boolean> get() = _recording.asStateFlow()
+    val recordingEnabledFlow: StateFlow<Boolean> get() = _recordingEnabled.asStateFlow()
+
+    /**
+     * Toggle GPX recording on the fly. When disabled mid-flight the
+     * current file is closed and a new one will start only if AIRBORNE
+     * is re-entered while enabled.
+     */
+    fun setRecordingEnabled(enabled: Boolean) {
+        _recordingEnabled.value = enabled
+        trackRecorder.enabled = enabled
+        _recording.value = trackRecorder.state().recording
+    }
 
     inner class LocalBinder : Binder() {
         fun service(): GpsTrackingService = this@GpsTrackingService
@@ -85,6 +103,10 @@ class GpsTrackingService : Service() {
         gpsRepository = GpsRepository(this)
         attitudeRepository = AttitudeRepository(this)
         environmentRepository = EnvironmentRepository(this)
+        trackRecorder = TrackRecorder(
+            root = filesDir.resolve("tracks"),
+            creator = "Stratos/${BuildConfig.VERSION_NAME}",
+        )
         ensureNotificationChannel()
     }
 
@@ -115,6 +137,8 @@ class GpsTrackingService : Service() {
                         _declinationDeg.value = MagneticDeclination.degreesEast(
                             gps.latitude, gps.longitude, gps.altitudeMeters, gps.timestampMs
                         )
+                        trackRecorder.onGpsSample(gps, snap.phase)
+                        _recording.value = trackRecorder.state().recording
                         refreshNotification(snap, gps.timestampMs)
                     }
                 }
@@ -127,6 +151,7 @@ class GpsTrackingService : Service() {
         collectJob?.cancel()
         collectJob = null
         scope.cancel()
+        if (::trackRecorder.isInitialized) trackRecorder.close()
         super.onDestroy()
     }
 

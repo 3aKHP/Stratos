@@ -10,11 +10,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,14 +31,17 @@ import com.gpsplane.app.ui.format.VSpeedUnit
 
 /**
  * Bottom-sheet that lets the user pick display units per metric (ground
- * speed, altitude, vertical speed, coordinates) plus the heading
- * reference (magnetic or true).
+ * speed, altitude, vertical speed, coordinates), the heading reference
+ * (magnetic or true), and whether GPX tracks are recorded automatically
+ * when AIRBORNE.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun UnitConfigSheet(
     config: UnitConfig,
     onConfigChange: (UnitConfig) -> Unit,
+    recordingEnabled: Boolean,
+    onRecordingEnabledChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -58,6 +64,26 @@ internal fun UnitConfigSheet(
                 { onConfigChange(config.copy(coord1 = it)) }, { onConfigChange(config.copy(coord2 = it)) })
             SingleUnitRow("Heading Reference", HeadingRef.entries, config.headingRef, { it.label },
                 { onConfigChange(config.copy(headingRef = it)) })
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(16.dp))
+            Text("Recording", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Auto-record GPX", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        "Write a new .gpx file under app storage when airborne.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                }
+                Switch(checked = recordingEnabled, onCheckedChange = onRecordingEnabledChange)
+            }
         }
     }
 }

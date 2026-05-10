@@ -101,6 +101,7 @@ fun MainScreen(
     val envData = service?.environment?.collectAsState()?.value ?: EnvironmentData.EMPTY
     val flightSnap = service?.flight?.collectAsState()?.value ?: FlightTimer.Snapshot.INITIAL
     val declinationDeg = service?.declinationDeg?.collectAsState()?.value ?: 0f
+    val recordingEnabled = service?.recordingEnabledFlow?.collectAsState()?.value ?: true
 
     Scaffold(
         bottomBar = {
@@ -131,7 +132,11 @@ fun MainScreen(
                 PermissionPrompt(onRequestPermission)
             } else {
                 when (selectedTab) {
-                    0 -> GpsScreen(gpsData, attData, envData, flightSnap, declinationDeg)
+                    0 -> GpsScreen(
+                        gpsData, attData, envData, flightSnap, declinationDeg,
+                        recordingEnabled = recordingEnabled,
+                        onRecordingEnabledChange = { service?.setRecordingEnabled(it) },
+                    )
                     1 -> MapScreen(gpsData)
                     2 -> DownloadScreen(gpsData)
                 }
