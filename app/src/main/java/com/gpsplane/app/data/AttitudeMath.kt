@@ -9,11 +9,17 @@ object AttitudeMath {
 
     /**
      * Convert the three Euler values that [android.hardware.SensorManager.getOrientation]
-     * returns (radians: [azimuth, pitch, roll], azimuth CCW-positive) into degrees
-     * with a compass-style azimuth (CW-positive, 0..360).
+     * returns (radians: [azimuth, pitch, roll]) into degrees.
+     *
+     * The platform azimuth is already compass-style (CW-positive, 0 at
+     * north, +π/2 at east). We only need to convert to degrees and wrap
+     * into [0, 360). Early versions of this code incorrectly negated the
+     * raw value under the belief that it was CCW-positive — that mistake
+     * shipped into alpha.1–3 and caused the sky plot to read ~180° off
+     * from the true phone heading.
      */
     fun orientationRadiansToDegrees(orientation: FloatArray): EulerDegrees {
-        val azimuthDeg = Math.toDegrees(-orientation[0].toDouble()).toFloat()
+        val azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
             .let { if (it < 0) it + 360f else it }
         val pitchDeg = Math.toDegrees(orientation[1].toDouble()).toFloat()
         val rollDeg = Math.toDegrees(orientation[2].toDouble()).toFloat()
