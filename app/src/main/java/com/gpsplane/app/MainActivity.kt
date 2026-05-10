@@ -23,7 +23,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.flowWithLifecycle
 import com.gpsplane.app.data.AttitudeRepository
 import com.gpsplane.app.data.EnvironmentRepository
+import com.gpsplane.app.data.FlightTimer
 import com.gpsplane.app.data.GpsRepository
+import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
@@ -95,6 +97,8 @@ fun MainScreen(
     var gpsData by remember { mutableStateOf(GpsData.EMPTY) }
     var attData by remember { mutableStateOf(AttitudeData.EMPTY) }
     var envData by remember { mutableStateOf(EnvironmentData.EMPTY) }
+    var flightSnap by remember { mutableStateOf(FlightTimer.Snapshot.INITIAL) }
+    var declinationDeg by remember { mutableStateOf(0f) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     // Flows are bound to the Activity's STARTED state so GPS / sensors stop
@@ -112,6 +116,14 @@ fun MainScreen(
                     gpsData = gps
                     attData = att
                     envData = env
+                    if (gps.hasFix) {
+                        flightSnap = FlightTimer.update(
+                            flightSnap, gps.speedMps, gps.altitudeMeters, gps.timestampMs
+                        )
+                        declinationDeg = MagneticDeclination.degreesEast(
+                            gps.latitude, gps.longitude, gps.altitudeMeters, gps.timestampMs
+                        )
+                    }
                 }
         }
     }
@@ -145,7 +157,7 @@ fun MainScreen(
                 PermissionPrompt(onRequestPermission)
             } else {
                 when (selectedTab) {
-                    0 -> GpsScreen(gpsData, attData, envData)
+                    0 -> GpsScreen(gpsData, attData, envData, flightSnap, declinationDeg)
                     1 -> MapScreen(gpsData)
                     2 -> DownloadScreen(gpsData)
                 }
