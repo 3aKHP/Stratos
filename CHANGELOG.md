@@ -6,6 +6,26 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0-beta.1] — 2026-05-10
+
+Feature-complete beta for v0.2.0. Lands the last three items on the
+v0.2.0 roadmap.
+
+### Added
+- **G-meter min/max.** Tap the LOAD cell on the dashboard to see the
+  smallest and largest load-factor readings from the current flight.
+  Values reset on every takeoff and clear automatically when the
+  flight timer returns to GROUND.
+- **Sunrise / sunset.** The top bar's second line now shows the
+  sunrise and sunset at the current GPS position in UTC, formatted
+  `SR HH:MMZ  SS HH:MMZ`. Recomputed on every GPS fix so east-bound
+  cruise tracks the times as they drift. Polar day / night render as
+  `++` / `--`.
+- **Immersive full-screen mode.** A new Display section in the
+  settings sheet hides the status and navigation bars; swipe from any
+  edge to reveal them transiently. Preference persists across
+  rotation and process death.
+
 ## [0.2.0-alpha.4] — 2026-05-10
 
 Fourth pre-release of v0.2.0. Moves GPS and sensor subscriptions into
