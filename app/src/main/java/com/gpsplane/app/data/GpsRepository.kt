@@ -116,7 +116,8 @@ class GpsRepository(context: Context) {
                 LocationManager.GPS_PROVIDER,
                 MIN_TIME_MS,
                 MIN_DISTANCE_M,
-                listener
+                listener,
+                Looper.getMainLooper(),
             )
         } catch (_: SecurityException) {
             trySend(GpsData.EMPTY)
