@@ -2,8 +2,8 @@ package com.gpsplane.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,23 +18,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.flowWithLifecycle
-import com.gpsplane.app.data.AttitudeRepository
-import com.gpsplane.app.data.EnvironmentRepository
 import com.gpsplane.app.data.FlightTimer
-import com.gpsplane.app.data.GpsRepository
-import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
+import com.gpsplane.app.service.GpsTrackingService
+import com.gpsplane.app.service.rememberBoundService
 import com.gpsplane.app.ui.screen.DownloadScreen
 import com.gpsplane.app.ui.screen.GpsScreen
 import com.gpsplane.app.ui.screen.MapScreen
 import com.gpsplane.app.ui.theme.GpsPlaneTheme
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
 
 class MainActivity : ComponentActivity() {
 
@@ -42,8 +35,16 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
-            hasLocationPermission = results.values.all { it }
-            if (hasLocationPermission) recreate()
+            hasLocationPermission = results.entries
+                .filter {
+                    it.key == Manifest.permission.ACCESS_FINE_LOCATION ||
+                    it.key == Manifest.permission.ACCESS_COARSE_LOCATION
+                }
+                .all { it.value }
+            if (hasLocationPermission) {
+                GpsTrackingService.start(this)
+                recreate()
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,13 +63,12 @@ class MainActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
 
+        if (hasLocationPermission) GpsTrackingService.start(this)
+
         setContent {
             GpsPlaneTheme {
                 MainScreen(
                     hasPermission = hasLocationPermission,
-                    gpsRepository = if (hasLocationPermission) GpsRepository(this) else null,
-                    attitudeRepository = if (hasLocationPermission) AttitudeRepository(this) else null,
-                    environmentRepository = if (hasLocationPermission) EnvironmentRepository(this) else null,
                     onRequestPermission = { requestPermissions() }
                 )
             }
@@ -76,57 +76,31 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestPermissions() {
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
+        val perms = buildList {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }.toTypedArray()
+        permissionLauncher.launch(perms)
     }
 }
 
 @Composable
 fun MainScreen(
     hasPermission: Boolean,
-    gpsRepository: GpsRepository?,
-    attitudeRepository: AttitudeRepository?,
-    environmentRepository: EnvironmentRepository?,
-    onRequestPermission: () -> Unit
+    onRequestPermission: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
-    var gpsData by remember { mutableStateOf(GpsData.EMPTY) }
-    var attData by remember { mutableStateOf(AttitudeData.EMPTY) }
-    var envData by remember { mutableStateOf(EnvironmentData.EMPTY) }
-    var flightSnap by remember { mutableStateOf(FlightTimer.Snapshot.INITIAL) }
-    var declinationDeg by remember { mutableStateOf(0f) }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    // Flows are bound to the Activity's STARTED state so GPS / sensors stop
-    // when the user backgrounds the app and resume automatically on return.
-    LaunchedEffect(hasPermission, gpsRepository, attitudeRepository, environmentRepository, lifecycle) {
-        if (hasPermission && gpsRepository != null && attitudeRepository != null && environmentRepository != null) {
-            combine(
-                gpsRepository.observeLocation(),
-                attitudeRepository.observeAttitude(),
-                environmentRepository.observeEnvironment(),
-            ) { gps, att, env -> Triple(gps, att, env) }
-                .flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
-                .catch { e -> Log.w("MainScreen", "Data flow error", e) }
-                .collect { (gps, att, env) ->
-                    gpsData = gps
-                    attData = att
-                    envData = env
-                    if (gps.hasFix) {
-                        flightSnap = FlightTimer.update(
-                            flightSnap, gps.speedMps, gps.altitudeMeters, gps.timestampMs
-                        )
-                        declinationDeg = MagneticDeclination.degreesEast(
-                            gps.latitude, gps.longitude, gps.altitudeMeters, gps.timestampMs
-                        )
-                    }
-                }
-        }
-    }
+    val service by rememberBoundService()
+
+    val gpsData = service?.gps?.collectAsState()?.value ?: GpsData.EMPTY
+    val attData = service?.attitude?.collectAsState()?.value ?: AttitudeData.EMPTY
+    val envData = service?.environment?.collectAsState()?.value ?: EnvironmentData.EMPTY
+    val flightSnap = service?.flight?.collectAsState()?.value ?: FlightTimer.Snapshot.INITIAL
+    val declinationDeg = service?.declinationDeg?.collectAsState()?.value ?: 0f
 
     Scaffold(
         bottomBar = {
