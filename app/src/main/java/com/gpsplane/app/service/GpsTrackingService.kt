@@ -140,18 +140,25 @@ class GpsTrackingService : Service() {
                     _gps.value = gps
                     _attitude.value = att
                     _environment.value = env
-                    if (gps.hasFix) {
-                        val snap = FlightTimer.update(
+                    val snap = if (gps.hasFix) {
+                        val s = FlightTimer.update(
                             _flight.value, gps.speedMps, gps.altitudeMeters, gps.timestampMs
                         )
-                        _flight.value = snap
+                        _flight.value = s
                         _declinationDeg.value = MagneticDeclination.degreesEast(
                             gps.latitude, gps.longitude, gps.altitudeMeters, gps.timestampMs
                         )
-                        trackRecorder.onGpsSample(gps, snap.phase)
-                        _recording.value = trackRecorder.state().recording
-                        refreshNotification(snap, gps.timestampMs)
+                        s
+                    } else {
+                        _flight.value
                     }
+                    // Feed every sample to the recorder — it handles the
+                    // no-fix and non-AIRBORNE cases, and crucially updates
+                    // its phase memo even on no-fix samples so a transition
+                    // arriving in a degraded sample isn't missed.
+                    trackRecorder.onGpsSample(gps, snap.phase)
+                    _recording.value = trackRecorder.state().recording
+                    if (gps.hasFix) refreshNotification(snap, gps.timestampMs)
                 }
                 .launchIn(scope)
         }

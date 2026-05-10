@@ -123,6 +123,36 @@ class TrackRecorderTest {
         assertThat(captured).isEmpty()
     }
 
+    @Test fun `periodic flush fires every N points`() {
+        var flushCount = 0
+        val captured = java.io.StringWriter()
+        val probingWriter = object : java.io.Writer() {
+            override fun write(cbuf: CharArray, off: Int, len: Int) = captured.write(cbuf, off, len)
+            override fun flush() { flushCount++; captured.flush() }
+            override fun close() = captured.close()
+        }
+        val r = TrackRecorder(
+            root = tmp.newFolder(),
+            creator = "Stratos/test",
+            writerFactory = { probingWriter },
+            clock = { 1746873127000L },
+            flushIntervalPoints = 3,
+        )
+        repeat(10) { r.onGpsSample(sampleGps(t = 1000L + it), FlightPhase.AIRBORNE) }
+        // Expect flushes after points 3, 6, 9 — the 10th sample hasn't hit
+        // a multiple of 3 yet, so flush count is 3.
+        assertThat(flushCount).isEqualTo(3)
+    }
+
+    @Test fun `GROUND sample after AIRBORNE closes file even without fix`() {
+        val captured = mutableListOf<StringWriter>()
+        val r = recorder(captured = captured)
+        r.onGpsSample(sampleGps(), FlightPhase.AIRBORNE)
+        r.onGpsSample(sampleGps(hasFix = false), FlightPhase.GROUND)
+        assertThat(r.state().recording).isFalse()
+        assertThat(captured[0].toString()).contains("</gpx>")
+    }
+
     @Test fun `filename uses UTC timestamp formatted as YYYYMMDD-HHMMSS`() {
         val root = tmp.newFolder()
         val r = TrackRecorder(

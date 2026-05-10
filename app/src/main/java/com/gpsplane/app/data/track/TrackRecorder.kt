@@ -38,6 +38,7 @@ class TrackRecorder(
         BufferedWriter(FileWriter(file))
     },
     private val clock: () -> Long = { System.currentTimeMillis() },
+    private val flushIntervalPoints: Int = DEFAULT_FLUSH_INTERVAL_POINTS,
 ) {
 
     data class State(
@@ -88,6 +89,13 @@ class TrackRecorder(
         writer?.let { w ->
             GpxWriter.writePoint(w, gps)
             pointsWritten++
+            // Flush periodically so a crash / OOM-kill mid-flight only
+            // loses the tail since the last flush, not everything since
+            // takeoff — the default BufferedWriter holds up to 8 KB
+            // (~30 trkpts) before it decides to touch disk on its own.
+            if (flushIntervalPoints > 0 && pointsWritten % flushIntervalPoints == 0) {
+                runCatching { w.flush() }
+            }
         }
     }
 
@@ -121,6 +129,9 @@ class TrackRecorder(
     fun close() = stopInternal()
 
     companion object {
+        /** Flush to disk every N points. ~10s at 1 Hz is a good default. */
+        const val DEFAULT_FLUSH_INTERVAL_POINTS = 10
+
         private val FILE_NAME_FORMAT = ThreadLocal.withInitial {
             SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
