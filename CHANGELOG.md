@@ -6,7 +6,7 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.2.0-alpha.1] — Unreleased
+## [0.2.0-alpha.1] — 2026-05-10
 
 First pre-release of the v0.2.0 Cockpit & Sensors milestone. Introduces
 barometer support and fleshes out the motion-sensor readouts.
@@ -35,7 +35,7 @@ barometer support and fleshes out the motion-sensor readouts.
 - Dashboard top metric row expands from 4 to 6 cells
   (Mach, Pitch, Roll, Acc, Load, Turn). Tight but readable in portrait.
 
-## [0.1.2] — Unreleased
+## [0.1.2] — 2026-05-10
 
 ### Changed
 - GPS and sensor flows now stop when the activity is backgrounded and resume on return (`flowWithLifecycle(STARTED)`), avoiding silent GPS drain off-screen
@@ -45,7 +45,7 @@ barometer support and fleshes out the motion-sensor readouts.
 ### Added
 - Unit tests for `VerticalSpeedFilter`, `AttitudeMath`, and `SatelliteStats` (13 new tests)
 
-## [0.1.1] — Unreleased
+## [0.1.1] — 2026-05-10
 
 ### Changed
 - Consolidate ArcGIS tile source into `data/tiles/ArcGISWorldStreetMap` shared by map and preloader
