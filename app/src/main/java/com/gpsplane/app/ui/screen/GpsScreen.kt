@@ -51,6 +51,7 @@ import com.gpsplane.app.data.FlightPhase
 import com.gpsplane.app.data.FlightTimer
 import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.PressureMath
+import com.gpsplane.app.data.SkyProjection
 import com.gpsplane.app.data.model.SatelliteInfo
 import com.gpsplane.app.util.UnitConverter
 
@@ -149,12 +150,33 @@ fun GpsScreen(
         Spacer(Modifier.height(6.dp))
 
         // ── Sky plot ──
+        val hasAzimuth = attData.hasAzimuth && !attData.azimuth.isNaN()
+        val isMoving = gpsData.speedMps >= 1.5f
+        // rotationDeg: world bearing placed at the top of the dial.
+        // Moving → TRK-UP (top = GPS track)
+        // Stationary + compass valid → HDG-UP (top = phone heading)
+        // Stationary + no compass → NORTH-UP (0°) + "NO HEADING" degrade banner
+        val rotationDeg = when {
+            isMoving && gpsData.bearing >= 0f -> gpsData.bearing
+            hasAzimuth -> attData.azimuth
+            else -> 0f
+        }
+        // Fan means "phone pointing relative to the top of the dial".
+        // - HDG-UP: phone heading IS the top → fan would always point up → useless.
+        // - TRK-UP: fan shows the phone's angle vs the track → informative.
+        // - NORTH-UP degrade: no azimuth to draw → hidden.
+        val showOrientationFan = isMoving && hasAzimuth
+        val showNoHeadingLabel = !isMoving && !hasAzimuth
+
         SkyPlot(
             satellites = gpsData.satellites,
-            bearing = gpsData.bearing.takeIf { gpsData.speedMps > 1f },
             azimuth = attData.azimuth.takeIf { attData.hasAzimuth },
             pitch = attData.pitch,
             roll = attData.roll,
+            rotationDeg = rotationDeg,
+            declinationDeg = declinationDeg,
+            showOrientationFan = showOrientationFan,
+            showNoHeadingLabel = showNoHeadingLabel,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -265,13 +287,34 @@ private fun formatFlightTime(state: com.gpsplane.app.data.FlightTimerState): Str
 
 // ── Sky plot ────────────────────────────────────────────────────────────────
 
+/**
+ * Heading-stabilized sky plot.
+ *
+ * [rotationDeg] is the world compass bearing placed at the top of the
+ * dial:
+ *   0°  = NORTH UP
+ *   track = TRK UP (in motion)
+ *   phone azimuth = HDG UP (stationary)
+ *
+ * Every angular element (ticks, cardinals, satellites, magnetic-north
+ * marker, orientation fan) routes through [SkyProjection] — a single
+ * pure function covered by hard-coded ground-truth tests. No Canvas
+ * rotation transform is involved, so there is no "trust the device"
+ * moment: the tests fix the signs.
+ *
+ * The artificial horizon (pitch/roll) belongs to the gravity frame and
+ * stays aligned to the screen.
+ */
 @Composable
 private fun SkyPlot(
     satellites: List<SatelliteInfo>,
-    bearing: Float?,
     azimuth: Float?,
     pitch: Float,
     roll: Float,
+    rotationDeg: Float,
+    declinationDeg: Float,
+    showOrientationFan: Boolean,
+    showNoHeadingLabel: Boolean,
     modifier: Modifier
 ) {
     Canvas(modifier = modifier) {
@@ -279,39 +322,80 @@ private fun SkyPlot(
         val cy = size.height / 2
         val r = minOf(cx, cy) - 4.dp.toPx()
 
-        // ── Fixed decorations ───────────────────────────────────────────
+        // ── Rings and outer stroke (rotation-invariant) ─────────────────
 
-        // Background disk
         drawCircle(Color.White.copy(alpha = 0.08f), r, Offset(cx, cy))
-
-        // Elevation rings: 30°, 60°
         for (el in listOf(0.33f, 0.66f)) {
             drawCircle(Color.White.copy(alpha = 0.14f), r * (1f - el), Offset(cx, cy))
         }
+        drawCircle(Color.White.copy(alpha = 0.2f), r, Offset(cx, cy),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
 
-        // Outer ring
-        drawCircle(Color.White.copy(alpha = 0.2f), r, Offset(cx, cy), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+        // ── Tick marks every 5° ─────────────────────────────────────────
 
-        // Tick marks (every 5°) around perimeter
-        // N at top (canvas 90°), so ticks go clockwise: 90°=N, 0°=E, 270°=S, 180°=W
         for (i in 0..71) {
-            val deg = i * 5f
-            val rad = Math.toRadians(deg.toDouble()).toFloat()
+            val worldAz = i * 5f
             val isCardinal = i % 18 == 0
             val len = if (isCardinal) 10.dp.toPx() else 5.dp.toPx()
-            val outer = r
-            val inner = outer - len
             val a = if (isCardinal) 0.45f else 0.2f
+            val (nx, ny) = SkyProjection.projectOnRing(worldAz, rotationDeg)
             drawLine(Color.White.copy(alpha = a),
-                Offset(cx + outer * kotlin.math.cos(rad), cy - outer * kotlin.math.sin(rad)),
-                Offset(cx + inner * kotlin.math.cos(rad), cy - inner * kotlin.math.sin(rad)),
+                Offset(cx + nx * r, cy + ny * r),
+                Offset(cx + nx * (r - len), cy + ny * (r - len)),
                 strokeWidth = if (isCardinal) 2f else 1f)
         }
 
-        // Cardinal labels: N@top(90°), E@right(0°), S@bottom(270°), W@left(180°).
-        // Paint.Align.CENTER handles horizontal centering; for vertical centering
-        // we offset the baseline by -(ascent+descent)/2 so the glyph's visual
-        // center sits on the target point.
+        // ── Phone orientation fan ───────────────────────────────────────
+        // Under TRK-UP this shows the phone's pointing relative to the
+        // flight direction. Under HDG-UP the fan would always be straight
+        // up, so the caller hides it. ±15° half-angle.
+
+        if (showOrientationFan && azimuth != null && !azimuth.isNaN()) {
+            val fanRadius = r * 0.7f
+            val (cxn, cyn) = SkyProjection.projectOnRing(azimuth, rotationDeg)
+            val (lxn, lyn) = SkyProjection.projectOnRing(azimuth - 15f, rotationDeg)
+            val (rxn, ryn) = SkyProjection.projectOnRing(azimuth + 15f, rotationDeg)
+            val cxPt = Offset(cx, cy)
+            val lPt = Offset(cx + lxn * fanRadius, cy + lyn * fanRadius)
+            val rPt = Offset(cx + rxn * fanRadius, cy + ryn * fanRadius)
+            // Triangle approximates the arc closely enough at ±15°.
+            val fanPath = Path().apply {
+                moveTo(cx, cy)
+                lineTo(lPt.x, lPt.y)
+                // Mid-ray to curve the triangle toward the arc midpoint.
+                lineTo(cx + cxn * fanRadius, cy + cyn * fanRadius)
+                lineTo(rPt.x, rPt.y)
+                close()
+            }
+            drawPath(fanPath, Color.White.copy(alpha = 0.12f))
+            drawLine(Color.White.copy(alpha = 0.25f), cxPt, lPt, strokeWidth = 1f)
+            drawLine(Color.White.copy(alpha = 0.25f), cxPt, rPt, strokeWidth = 1f)
+        }
+
+        // ── Satellites ──────────────────────────────────────────────────
+
+        satellites.forEach { sat ->
+            val (nx, ny) = SkyProjection.projectWithElevation(
+                sat.azimuth, sat.elevation, rotationDeg
+            )
+            val sx = cx + nx * r
+            val sy = cy + ny * r
+            val c = constellationColor(sat.constellationType)
+            val alpha = if (sat.usedInFix) 1f else 0.4f
+            val sr = (3.5f + sat.cn0DbHz / 12f).coerceIn(3f, 7f)
+
+            if (sat.usedInFix) {
+                drawCircle(c.copy(alpha = 0.35f), sr + 1.5f, Offset(sx, sy))
+            }
+            drawCircle(c.copy(alpha = alpha), sr, Offset(sx, sy))
+        }
+
+        // ── Centre dot ──────────────────────────────────────────────────
+
+        drawCircle(Color.White.copy(alpha = 0.5f), 2.dp.toPx(), Offset(cx, cy))
+
+        // ── Cardinal labels (upright text) ──────────────────────────────
+
         val cardinalPaint = android.graphics.Paint().apply {
             color = 0x99FFFFFF.toInt()
             textSize = 12.dp.toPx()
@@ -319,20 +403,59 @@ private fun SkyPlot(
             isAntiAlias = true
             isFakeBoldText = true
         }
-        val baselineOffset = -(cardinalPaint.fontMetrics.ascent + cardinalPaint.fontMetrics.descent) / 2f
-        val labels = mapOf(90f to "N", 0f to "E", 270f to "S", 180f to "W")
-        for ((deg, label) in labels) {
-            val rad = Math.toRadians(deg.toDouble()).toFloat()
-            val lr = r + 14.dp.toPx()
+        val baselineOffset =
+            -(cardinalPaint.fontMetrics.ascent + cardinalPaint.fontMetrics.descent) / 2f
+        val lr = r + 14.dp.toPx()
+        val cardinals = listOf(0f to "N", 90f to "E", 180f to "S", 270f to "W")
+        for ((worldAz, label) in cardinals) {
+            val (nx, ny) = SkyProjection.projectOnRing(worldAz, rotationDeg)
             drawContext.canvas.nativeCanvas.drawText(
                 label,
-                cx + lr * kotlin.math.cos(rad),
-                cy - lr * kotlin.math.sin(rad) + baselineOffset,
+                cx + nx * lr,
+                cy + ny * lr + baselineOffset,
                 cardinalPaint
             )
         }
 
-        // ── Artificial horizon (pitch / roll) ───────────────────────────
+        // ── Magnetic north marker ───────────────────────────────────────
+        // declinationDeg is east-positive (GeomagneticField convention),
+        // so magnetic north sits at world compass bearing = declinationDeg.
+
+        if (!declinationDeg.isNaN()) {
+            val magNorthPaint = android.graphics.Paint().apply {
+                color = 0xCCFF5252.toInt()
+                textSize = 10.dp.toPx()
+                textAlign = android.graphics.Paint.Align.CENTER
+                isAntiAlias = true
+                isFakeBoldText = true
+            }
+            val magBaselineOffset =
+                -(magNorthPaint.fontMetrics.ascent + magNorthPaint.fontMetrics.descent) / 2f
+            val (nx, ny) = SkyProjection.projectOnRing(declinationDeg, rotationDeg)
+            drawContext.canvas.nativeCanvas.drawText(
+                "N",
+                cx + nx * lr,
+                cy + ny * lr + magBaselineOffset,
+                magNorthPaint
+            )
+        }
+
+        // ── "NO HEADING" degrade banner ─────────────────────────────────
+
+        if (showNoHeadingLabel) {
+            val warnPaint = android.graphics.Paint().apply {
+                color = 0x66FFFFFF
+                textSize = 10.dp.toPx()
+                textAlign = android.graphics.Paint.Align.CENTER
+                isAntiAlias = true
+            }
+            drawContext.canvas.nativeCanvas.drawText(
+                "NO HEADING",
+                cx, cy + r * 0.25f, warnPaint
+            )
+        }
+
+        // ── Artificial horizon (gravity frame — never rotates) ──────────
 
         if (!pitch.isNaN() && !roll.isNaN()) {
             val rollRad = Math.toRadians(roll.toDouble()).toFloat()
@@ -347,82 +470,12 @@ private fun SkyPlot(
                 Offset(cx + hw * cosR, lineY + hw * sinR),
                 strokeWidth = 2f
             )
-            // Center crosshair mark
             val markLen = 6.dp.toPx()
             drawLine(Color.White.copy(alpha = 0.35f),
                 Offset(cx - markLen * cosR, lineY - markLen * sinR),
                 Offset(cx + markLen * cosR, lineY + markLen * sinR),
                 strokeWidth = 3f)
         }
-
-        // ── Phone orientation fan ──────────────────────────────────────
-
-        if (azimuth != null && !azimuth.isNaN()) {
-            val azRad = Math.toRadians(azimuth.toDouble()).toFloat()
-            val haRad = Math.toRadians(15.0).toFloat() // ±15° half-angle
-            val fanRadius = r * 0.7f
-            val fanRect = Rect(cx - fanRadius, cy - fanRadius, cx + fanRadius, cy + fanRadius)
-            // arcTo uses canvas angles: 0°=right, clockwise downward
-            // Compass az → canvas angle: startAngle = az - 90 - 15
-            val startAngleDeg = azimuth - 15f - 90f
-            val fanPath = Path().apply {
-                moveTo(cx, cy)
-                arcTo(fanRect, startAngleDeg, 30f, false)
-                close()
-            }
-            drawPath(fanPath, Color.White.copy(alpha = 0.12f))
-            // Thin edge lines for the fan
-            drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
-                Offset(cx + fanRadius * kotlin.math.sin(azRad - haRad),
-                       cy - fanRadius * kotlin.math.cos(azRad - haRad)), strokeWidth = 1f)
-            drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
-                Offset(cx + fanRadius * kotlin.math.sin(azRad + haRad),
-                       cy - fanRadius * kotlin.math.cos(azRad + haRad)), strokeWidth = 1f)
-        }
-
-        // ── Airplane bearing needle (from center) ────────────────────────
-
-        if (bearing != null && bearing >= 0) {
-            val brRad = Math.toRadians(bearing.toDouble()).toFloat()
-            val sinB = kotlin.math.sin(brRad)
-            val cosB = kotlin.math.cos(brRad)
-            val tipX = cx + r * 0.88f * sinB
-            val tipY = cy - r * 0.88f * cosB
-            // Shaft from center to near-tip
-            drawLine(Color.Red.copy(alpha = 0.9f), Offset(cx, cy), Offset(tipX, tipY), strokeWidth = 3f)
-            // Airplane triangle at tip — base positioned just behind tip
-            val wingLen = 12.dp.toPx()
-            val baseX = cx + r * 0.74f * sinB
-            val baseY = cy - r * 0.74f * cosB
-            val path = Path().apply {
-                moveTo(tipX, tipY)
-                lineTo(baseX + wingLen * cosB, baseY + wingLen * sinB)
-                lineTo(baseX - wingLen * cosB, baseY - wingLen * sinB)
-                close()
-            }
-            drawPath(path, Color.Red.copy(alpha = 0.9f))
-        }
-
-        // ── Satellites ───────────────────────────────────────────────────
-
-        satellites.forEach { sat ->
-            val el = sat.elevation.coerceIn(0f, 89f)
-            val azRad = Math.toRadians(sat.azimuth.toDouble()).toFloat()
-            val dist = r * (1f - el / 90f)
-            val sx = cx + dist * kotlin.math.sin(azRad)
-            val sy = cy - dist * kotlin.math.cos(azRad)
-            val c = constellationColor(sat.constellationType)
-            val alpha = if (sat.usedInFix) 1f else 0.4f
-            val sr = (3.5f + sat.cn0DbHz / 12f).coerceIn(3f, 7f)
-
-            if (sat.usedInFix) {
-                drawCircle(c.copy(alpha = 0.35f), sr + 1.5f, Offset(sx, sy))
-            }
-            drawCircle(c.copy(alpha = alpha), sr, Offset(sx, sy))
-        }
-
-        // Center dot
-        drawCircle(Color.White.copy(alpha = 0.5f), 2.dp.toPx(), Offset(cx, cy))
     }
 }
 

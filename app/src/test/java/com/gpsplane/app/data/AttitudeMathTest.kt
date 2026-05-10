@@ -15,19 +15,18 @@ class AttitudeMathTest {
     }
 
     @Test
-    fun `azimuth is flipped and wrapped to 0-360`() {
-        // SensorManager.getOrientation returns azimuth CCW-positive. A device
-        // pointing east (compass 90°) yields azimuth = -π/2. After flipping
-        // and wrapping we expect 90°.
+    fun `azimuth is converted to degrees and wrapped to 0-360`() {
+        // SensorManager.getOrientation already returns a compass-style
+        // azimuth (CW-positive, 0 = north). A device pointing east
+        // yields +π/2 rad, which should surface as 90°.
         val east = AttitudeMath.orientationRadiansToDegrees(
-            floatArrayOf((-Math.PI / 2).toFloat(), 0f, 0f)
+            floatArrayOf((Math.PI / 2).toFloat(), 0f, 0f)
         )
         assertThat(east.azimuth).isWithin(1e-3f).of(90f)
 
-        // Device pointing west (compass 270°) → raw azimuth = π/2 → flip to
-        // -90° → wrap to 270°.
+        // Device pointing west: raw -π/2 → -90° → wrapped to 270°.
         val west = AttitudeMath.orientationRadiansToDegrees(
-            floatArrayOf((Math.PI / 2).toFloat(), 0f, 0f)
+            floatArrayOf((-Math.PI / 2).toFloat(), 0f, 0f)
         )
         assertThat(west.azimuth).isWithin(1e-3f).of(270f)
     }

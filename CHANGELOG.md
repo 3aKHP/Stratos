@@ -6,6 +6,36 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0-alpha.3] — 2026-05-10
+
+Third pre-release of v0.2.0. Fixes a long-standing correctness bug in
+the sky plot: the compass was canvas-fixed, so its N/S/E/W labels and
+satellite positions were only true when the phone happened to point
+north. The plot now tracks physical heading.
+
+### Added
+- **Heading-stabilized sky plot.** Top of the dial now follows flight
+  direction (TRK-UP) in motion and phone heading (HDG-UP) when
+  stationary; satellites, cardinals, and tick marks rotate with the
+  dial so they match the real sky. Switchover at 1.5 m/s.
+- **"NO HEADING" degrade label.** Shown when the phone is stationary
+  and the compass sensor isn't producing valid data; the dial falls
+  back to NORTH-UP in that case.
+- **Magnetic-north marker.** A small red "N" sits clockwise from the
+  true-north "N" by the local magnetic declination, making the offset
+  visible at a glance.
+- **Meaningful phone orientation fan.** Under TRK-UP the existing grey
+  fan now shows where the phone points relative to the flight
+  direction — a useful cue for window-seat users reconciling what
+  they see out the window with their heading. Fan is hidden under
+  HDG-UP (where it would always point straight up) and when there's
+  no compass.
+
+### Removed
+- **Red GPS track needle.** Obsoleted by TRK-UP (the top of the dial
+  already IS the track direction) and was actively misleading under
+  the old canvas-fixed layout.
+
 ## [0.2.0-alpha.2] — 2026-05-10
 
 Second pre-release of v0.2.0. Adds navigation and flight-status
