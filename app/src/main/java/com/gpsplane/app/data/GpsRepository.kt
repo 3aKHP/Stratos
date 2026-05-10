@@ -55,6 +55,13 @@ class GpsRepository(context: Context) {
 
     @SuppressLint("MissingPermission")
     fun observeLocation(): Flow<GpsData> = callbackFlow {
+        // Seed an initial EMPTY so downstream `combine` calls don't block
+        // on GPS's first fix (can be tens of seconds cold) before the
+        // attitude/env channels start updating their StateFlows. Matches
+        // the pattern already used in AttitudeRepository and
+        // EnvironmentRepository.
+        trySend(GpsData.EMPTY)
+
         // Register GNSS status callback for this flow's lifetime
         locationManager.registerGnssStatusCallback(
             gnssStatusCallback,
@@ -116,7 +123,8 @@ class GpsRepository(context: Context) {
                 LocationManager.GPS_PROVIDER,
                 MIN_TIME_MS,
                 MIN_DISTANCE_M,
-                listener
+                listener,
+                Looper.getMainLooper(),
             )
         } catch (_: SecurityException) {
             trySend(GpsData.EMPTY)

@@ -30,6 +30,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.gpsplane.app.BuildConfig
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.data.tiles.ArcGISWorldStreetMap
 import org.osmdroid.config.Configuration
@@ -55,7 +56,7 @@ fun MapScreen(gpsData: GpsData) {
 
     LaunchedEffect(context) {
         Configuration.getInstance().apply {
-            userAgentValue = "Stratos/0.2.0-alpha.3"
+            userAgentValue = "Stratos/${BuildConfig.VERSION_NAME}"
             // noBackupFilesDir so preloaded tiles survive cache eviction but
             // aren't swept into Google Auto Backup (25 MB per-app cap).
             osmdroidTileCache = context.noBackupFilesDir.resolve("osmdroid-v2")

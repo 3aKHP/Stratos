@@ -1,5 +1,6 @@
 package com.gpsplane.app.data
 
+import com.gpsplane.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -201,7 +202,7 @@ class TilePreloader(
         private const val MAX_CONCURRENT = 8
         private const val EARTH_RADIUS_KM = 6371.0
         private const val PROGRESS_REPORT_INTERVAL_MS = 100L
-        private const val USER_AGENT = "Stratos/0.2.0-alpha.3"
+        private val USER_AGENT = "Stratos/${BuildConfig.VERSION_NAME}"
 
         /** Great-circle distance in km (Haversine). */
         fun greatCircleDistance(a: GeoPoint, b: GeoPoint): Double {

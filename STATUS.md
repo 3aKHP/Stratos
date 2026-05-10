@@ -25,6 +25,8 @@
 - **v0.1.1** — 已合 main，未打 tag（CHANGELOG 仍是 Unreleased）
 - **v0.1.2** — 已合 main，未打 tag（CHANGELOG 仍是 Unreleased）
 - **v0.2.0-alpha.1** — 已合 main，未打 tag（CHANGELOG 仍是 Unreleased）
+- **v0.2.0-alpha.2 / alpha.3** — 已合 main
+- **v0.2.0-alpha.4** — PR 审阅中（前台服务 + GPX 记录）
 
 "合了 main 但没 tag" 是刻意的——每个 milestone 打 tag 时一并决策要不要把前面积攒的修订也 tag 出来。
 
@@ -91,12 +93,12 @@ docs/
 
 ### 架构与功能
 
-- **磁偏角算法选型**（v0.2.0-alpha.2）：WMM 完整数据 vs IGRF 多项式 vs 其他，倾向 WMM
-- **ZULU 时钟 + 飞行时长状态机**（v0.2.0-alpha.2）
-- **前台服务 + GPX 航迹记录**（v0.2.0-alpha.3，需重新加回 FOREGROUND_SERVICE 权限）
+- **磁偏角算法选型**（v0.2.0-alpha.2）：已完成（WMM via GeomagneticField）
+- **ZULU 时钟 + 飞行时长状态机**（v0.2.0-alpha.2）：已完成
+- **前台服务 + GPX 航迹记录**（v0.2.0-alpha.4）：已完成
 - **TilePreloader 走廊宽度纬度修正**：当前 `corridorTiles` 忽略 `cos(lat)`，高纬度走廊偏窄。独立 PR
 - **Dashboard 无气压计时是否隐藏 BaroRow**：当前保持显示 "no baro"
-- **`GpsScreen.kt` 拆分**：当前近 700 行，下一个需要结构化重构的目标
+- **`GpsScreen.kt` 拆分**：已完成（split into ui/format/ + ui/component/）
 
 ### 观感 / 性能
 

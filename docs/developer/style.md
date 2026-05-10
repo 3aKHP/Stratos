@@ -96,12 +96,11 @@ Compose 层特别容易变成面条。额外要求：
 - tag 名带 `v` 前缀：`v0.2.0-alpha.1`
 - 含 `-` 后缀的 tag 会被 release.yml 识别为 prerelease
 
-**版本号需要同步更新的地方**（遗漏会导致 User-Agent 和包版本不一致）：
+**版本号需要同步更新的地方**：
 - `app/build.gradle.kts`：`versionCode` + `versionName`
-- `app/src/main/java/com/gpsplane/app/data/TilePreloader.kt`：`USER_AGENT` 常量
-- `app/src/main/java/com/gpsplane/app/ui/screen/MapScreen.kt`：`userAgentValue`
-- `app/src/main/java/com/gpsplane/app/ui/screen/DownloadScreen.kt`：`userAgentValue`
 - `CHANGELOG.md`
+
+`TilePreloader` / `MapScreen` / `DownloadScreen` 的 `User-Agent` 现在直接取 `BuildConfig.VERSION_NAME`，不再需要手动同步（v0.2.0-alpha.4 起）。
 
 ---
 

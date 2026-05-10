@@ -37,6 +37,8 @@ fun GpsScreen(
     envData: EnvironmentData,
     flightSnap: FlightTimer.Snapshot,
     declinationDeg: Float,
+    recordingEnabled: Boolean,
+    onRecordingEnabledChange: (Boolean) -> Unit,
 ) {
     var unitConfig by remember { mutableStateOf(UnitConfig()) }
     var showConfig by remember { mutableStateOf(false) }
@@ -45,6 +47,8 @@ fun GpsScreen(
         UnitConfigSheet(
             config = unitConfig,
             onConfigChange = { unitConfig = it },
+            recordingEnabled = recordingEnabled,
+            onRecordingEnabledChange = onRecordingEnabledChange,
             onDismiss = { showConfig = false }
         )
     }

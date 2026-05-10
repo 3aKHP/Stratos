@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.gpsplane.app.BuildConfig
 import com.gpsplane.app.data.TilePreloader
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.data.tiles.ArcGISWorldStreetMap
@@ -67,7 +68,7 @@ fun DownloadScreen(gpsData: GpsData) {
     // Ensure cache dir matches MapScreen (osmdroid-v2)
     LaunchedEffect(context) {
         Configuration.getInstance().apply {
-            userAgentValue = "Stratos/0.2.0-alpha.3"
+            userAgentValue = "Stratos/${BuildConfig.VERSION_NAME}"
             osmdroidTileCache = context.noBackupFilesDir.resolve("osmdroid-v2")
         }
     }
