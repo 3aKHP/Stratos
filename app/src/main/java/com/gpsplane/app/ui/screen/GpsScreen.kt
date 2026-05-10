@@ -1,21 +1,11 @@
 package com.gpsplane.app.ui.screen
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,41 +13,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.data.FlightTimer
 import com.gpsplane.app.data.MagneticDeclination
-import com.gpsplane.app.data.PressureMath
+import com.gpsplane.app.ui.component.BaroRow
 import com.gpsplane.app.ui.component.BottomRow
 import com.gpsplane.app.ui.component.CompactSignalBars
 import com.gpsplane.app.ui.component.LightMetricRow
 import com.gpsplane.app.ui.component.PrimaryInstrumentRow
 import com.gpsplane.app.ui.component.SkyPlot
 import com.gpsplane.app.ui.component.TopBar
+import com.gpsplane.app.ui.component.UnitConfigSheet
 import com.gpsplane.app.ui.component.WaitingState
 import com.gpsplane.app.ui.component.constellationColor
 import com.gpsplane.app.ui.component.constellationLabel
-import com.gpsplane.app.ui.format.AltUnit
-import com.gpsplane.app.ui.format.CoordFormat
-import com.gpsplane.app.ui.format.HeadingRef
-import com.gpsplane.app.ui.format.SpeedUnit
 import com.gpsplane.app.ui.format.UnitConfig
-import com.gpsplane.app.ui.format.VSpeedUnit
-import com.gpsplane.app.ui.format.fmtAlt
-import com.gpsplane.app.ui.format.fmtCoord
-import com.gpsplane.app.ui.format.fmtSpd
-import com.gpsplane.app.ui.format.fmtVS
-import com.gpsplane.app.ui.format.headingToCardinal
 import com.gpsplane.app.util.UnitConverter
 
 // ── Main screen ────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpsScreen(
     gpsData: GpsData,
@@ -178,132 +155,4 @@ fun GpsScreen(
 
 // ── Barometer row ───────────────────────────────────────────────────────────
 
-@Composable
-private fun BaroRow(gpsData: GpsData, envData: EnvironmentData) {
-    // Static side is always available (derived from GPS altitude via ISA).
-    val staticPressureHpa = PressureMath.altitudeToPressure(gpsData.altitudeMeters)
-    val staticAltFt = UnitConverter.metersToFeet(gpsData.altitudeMeters)
-
-    val hasBaro = envData.hasPressure && !envData.cabinPressureHpa.isNaN()
-    val cabinAltFt = if (hasBaro) UnitConverter.metersToFeet(envData.cabinAltitudeM.toDouble()) else null
-
-    Row(modifier = Modifier.fillMaxWidth()) {
-        BaroCell(
-            label = "CABIN ALT",
-            primary = if (cabinAltFt != null) "%.0f ft".format(cabinAltFt) else "—",
-            secondary = if (hasBaro) "%.0f m".format(envData.cabinAltitudeM) else "no baro",
-            modifier = Modifier.weight(1f),
-        )
-        BaroCell(
-            label = "STATIC ALT",
-            primary = "%.0f ft".format(staticAltFt),
-            secondary = "%.0f m".format(gpsData.altitudeMeters),
-            modifier = Modifier.weight(1f),
-        )
-        BaroCell(
-            label = "CABIN P",
-            primary = if (hasBaro) "%.1f hPa".format(envData.cabinPressureHpa) else "—",
-            secondary = if (hasBaro) "%.2f inHg".format(UnitConverter.hpaToInHg(envData.cabinPressureHpa)) else "",
-            modifier = Modifier.weight(1f),
-        )
-        BaroCell(
-            label = "STATIC P",
-            primary = "%.1f hPa".format(staticPressureHpa),
-            secondary = "%.2f inHg".format(UnitConverter.hpaToInHg(staticPressureHpa)),
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun BaroCell(label: String, primary: String, secondary: String, modifier: Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-            maxLines = 1, softWrap = false)
-        Text(primary,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-            maxLines = 1, softWrap = false)
-        Text(secondary,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp,
-                fontFamily = FontFamily.Monospace),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-            maxLines = 1, softWrap = false)
-    }
-}
-
 // ── Unit config bottom sheet ────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun UnitConfigSheet(
-    config: UnitConfig,
-    onConfigChange: (UnitConfig) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss, sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp)
-        ) {
-            Text("Display Units", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(16.dp))
-            DualUnitRow("Ground Speed", SpeedUnit.entries, config.speed1, config.speed2, { it.label },
-                { onConfigChange(config.copy(speed1 = it)) }, { onConfigChange(config.copy(speed2 = it)) })
-            DualUnitRow("Altitude", AltUnit.entries, config.alt1, config.alt2, { it.label },
-                { onConfigChange(config.copy(alt1 = it)) }, { onConfigChange(config.copy(alt2 = it)) })
-            DualUnitRow("Vertical Speed", VSpeedUnit.entries, config.vs1, config.vs2, { it.label },
-                { onConfigChange(config.copy(vs1 = it)) }, { onConfigChange(config.copy(vs2 = it)) })
-            DualUnitRow("Coordinates", CoordFormat.entries, config.coord1, config.coord2, { it.label },
-                { onConfigChange(config.copy(coord1 = it)) }, { onConfigChange(config.copy(coord2 = it)) })
-            SingleUnitRow("Heading Reference", HeadingRef.entries, config.headingRef, { it.label },
-                { onConfigChange(config.copy(headingRef = it)) })
-        }
-    }
-}
-
-@Composable
-private fun <T> DualUnitRow(
-    title: String, options: List<T>, sel1: T, sel2: T,
-    labelFn: (T) -> String, onChange1: (T) -> Unit, onChange2: (T) -> Unit
-) {
-    Column(modifier = Modifier.padding(vertical = 6.dp)) {
-        Text(title, style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            options.forEach { opt ->
-                FilterChip(
-                    selected = opt == sel1 || opt == sel2,
-                    onClick = { onChange2(sel1); onChange1(opt) },
-                    label = { Text(labelFn(opt), fontSize = 12.sp, maxLines = 1) },
-                    modifier = Modifier.height(32.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun <T> SingleUnitRow(
-    title: String, options: List<T>, selected: T,
-    labelFn: (T) -> String, onChange: (T) -> Unit,
-) {
-    Column(modifier = Modifier.padding(vertical = 6.dp)) {
-        Text(title, style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            options.forEach { opt ->
-                FilterChip(
-                    selected = opt == selected,
-                    onClick = { onChange(opt) },
-                    label = { Text(labelFn(opt), fontSize = 12.sp, maxLines = 1) },
-                    modifier = Modifier.height(32.dp))
-            }
-        }
-    }
-}
