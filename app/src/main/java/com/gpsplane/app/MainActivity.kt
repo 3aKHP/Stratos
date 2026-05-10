@@ -63,7 +63,14 @@ class MainActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
 
-        if (hasLocationPermission) GpsTrackingService.start(this)
+        if (hasLocationPermission) {
+            GpsTrackingService.start(this)
+            // Location may already be granted from a prior install, in which
+            // case requestPermissions() never runs and POST_NOTIFICATIONS
+            // stays un-prompted — the service then runs but the persistent
+            // notification is silently suppressed on API 33+. Ask on its own.
+            maybeRequestNotificationPermission()
+        }
 
         setContent {
             GpsPlaneTheme {
@@ -84,6 +91,16 @@ class MainActivity : ComponentActivity() {
             }
         }.toTypedArray()
         permissionLauncher.launch(perms)
+    }
+
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val already = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!already) {
+            permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+        }
     }
 }
 

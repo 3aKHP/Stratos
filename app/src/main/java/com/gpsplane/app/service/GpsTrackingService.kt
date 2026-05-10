@@ -90,6 +90,7 @@ class GpsTrackingService : Service() {
         _recordingEnabled.value = enabled
         trackRecorder.enabled = enabled
         _recording.value = trackRecorder.state().recording
+        refreshNotification(_flight.value, _gps.value.timestampMs)
     }
 
     inner class LocalBinder : Binder() {
@@ -157,6 +158,13 @@ class GpsTrackingService : Service() {
 
     private fun stop() {
         stopForeground(STOP_FOREGROUND_REMOVE)
+        // STOP_FOREGROUND_REMOVE only removes the notification while it's still
+        // tied to the FGS. Because we refresh via NotificationManager.notify(),
+        // the system treats later updates as a standalone notification, so an
+        // explicit cancel is required — otherwise the Stop action looks
+        // broken from the user's side even though the service is tearing down.
+        val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        mgr.cancel(NOTIFICATION_ID)
         stopSelf()
     }
 
@@ -215,9 +223,14 @@ class GpsTrackingService : Service() {
                 )
             }
         }
+        val text = if (_recordingEnabled.value) {
+            getString(R.string.tracking_notification_recording)
+        } else {
+            getString(R.string.tracking_notification_live_only)
+        }
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText(getString(R.string.tracking_notification_text))
+            .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(contentIntent)
             .setOngoing(true)
