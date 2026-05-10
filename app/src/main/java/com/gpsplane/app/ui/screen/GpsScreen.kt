@@ -295,19 +295,28 @@ private fun SkyPlot(
                 strokeWidth = if (isCardinal) 2f else 1f)
         }
 
-        // Cardinal labels: N@top(90°), E@right(0°), S@bottom(270°), W@left(180°)
+        // Cardinal labels: N@top(90°), E@right(0°), S@bottom(270°), W@left(180°).
+        // Paint.Align.CENTER handles horizontal centering; for vertical centering
+        // we offset the baseline by -(ascent+descent)/2 so the glyph's visual
+        // center sits on the target point.
+        val cardinalPaint = android.graphics.Paint().apply {
+            color = 0x99FFFFFF.toInt()
+            textSize = 12.dp.toPx()
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+            isFakeBoldText = true
+        }
+        val baselineOffset = -(cardinalPaint.fontMetrics.ascent + cardinalPaint.fontMetrics.descent) / 2f
         val labels = mapOf(90f to "N", 0f to "E", 270f to "S", 180f to "W")
         for ((deg, label) in labels) {
             val rad = Math.toRadians(deg.toDouble()).toFloat()
             val lr = r + 14.dp.toPx()
             drawContext.canvas.nativeCanvas.drawText(
-                label, cx + lr * kotlin.math.cos(rad) - 7.dp.toPx(),
-                cy - lr * kotlin.math.sin(rad) + 5.dp.toPx(),
-                android.graphics.Paint().apply {
-                    color = 0x99FFFFFF.toInt()
-                    textSize = 12.dp.toPx()
-                    textAlign = android.graphics.Paint.Align.CENTER
-                })
+                label,
+                cx + lr * kotlin.math.cos(rad),
+                cy - lr * kotlin.math.sin(rad) + baselineOffset,
+                cardinalPaint
+            )
         }
 
         // ── Artificial horizon (pitch / roll) ───────────────────────────
