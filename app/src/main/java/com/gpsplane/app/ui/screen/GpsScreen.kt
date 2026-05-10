@@ -18,7 +18,6 @@ import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.data.FlightTimer
-import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.ui.component.BaroRow
 import com.gpsplane.app.ui.component.BottomRow
 import com.gpsplane.app.ui.component.CompactSignalBars
@@ -28,12 +27,8 @@ import com.gpsplane.app.ui.component.SkyPlot
 import com.gpsplane.app.ui.component.TopBar
 import com.gpsplane.app.ui.component.UnitConfigSheet
 import com.gpsplane.app.ui.component.WaitingState
-import com.gpsplane.app.ui.component.constellationColor
-import com.gpsplane.app.ui.component.constellationLabel
 import com.gpsplane.app.ui.format.UnitConfig
 import com.gpsplane.app.util.UnitConverter
-
-// ── Main screen ────────────────────────────────────────────────────────────
 
 @Composable
 fun GpsScreen(
@@ -152,7 +147,3 @@ fun GpsScreen(
         BottomRow(gpsData, unitConfig)
     }
 }
-
-// ── Barometer row ───────────────────────────────────────────────────────────
-
-// ── Unit config bottom sheet ────────────────────────────────────────────────

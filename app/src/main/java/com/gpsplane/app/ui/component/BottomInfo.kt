@@ -23,6 +23,14 @@ import com.gpsplane.app.ui.format.fmtCoord
 import com.gpsplane.app.ui.format.formatZulu
 
 /**
+ * Dashboard-edge UI that appears below the main instrument stack —
+ * the coordinate/time strip ([BottomRow]) plus the full-screen
+ * placeholder ([WaitingState]) shown before the first GPS fix. The
+ * two share a file because they're the only "around the edges"
+ * pieces once the core dashboard composables live on their own.
+ */
+
+/**
  * Bottom info block: two lines of coordinates plus a timestamp line
  * (`UTC HH:MM:SSZ   local HH:MM:SS   ±X.X m`).
  */
