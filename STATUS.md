@@ -26,7 +26,7 @@
 - **v0.1.2** — 已合 main，未打 tag（CHANGELOG 仍是 Unreleased）
 - **v0.2.0-alpha.1** — 已合 main，未打 tag（CHANGELOG 仍是 Unreleased）
 - **v0.2.0-alpha.2 / alpha.3** — 已合 main
-- **v0.2.0-alpha.4** — 开发中（前台服务 + GPX 记录）
+- **v0.2.0-alpha.4** — PR 审阅中（前台服务 + GPX 记录）
 
 "合了 main 但没 tag" 是刻意的——每个 milestone 打 tag 时一并决策要不要把前面积攒的修订也 tag 出来。
 
