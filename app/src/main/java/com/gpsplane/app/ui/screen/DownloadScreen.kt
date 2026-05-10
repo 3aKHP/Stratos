@@ -67,7 +67,7 @@ fun DownloadScreen(gpsData: GpsData) {
     // Ensure cache dir matches MapScreen (osmdroid-v2)
     LaunchedEffect(context) {
         Configuration.getInstance().apply {
-            userAgentValue = "Stratos/0.2.0-alpha.1"
+            userAgentValue = "Stratos/0.2.0-alpha.2"
             osmdroidTileCache = context.noBackupFilesDir.resolve("osmdroid-v2")
         }
     }

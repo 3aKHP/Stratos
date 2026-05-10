@@ -6,6 +6,36 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0-alpha.2] — 2026-05-10
+
+Second pre-release of v0.2.0. Adds navigation and flight-status
+readouts to the top bar, and tightens the dashboard layout.
+
+### Added
+- **ZULU clock** — UTC time of day in the top bar, ticking once a
+  second (`HH:MM:SSZ`).
+- **Flight timer** — two-state machine (GROUND / AIRBORNE) inferred
+  from GPS. Reads `GROUND` when taxiing or idle; switches to
+  `T+HH:MM:SS` 10 seconds after speed exceeds 150 kn above 3000 ft,
+  and reverts to `GROUND` 30 seconds after dropping below 80 kn.
+- **Magnetic heading** — `TRACK` now defaults to magnetic north using
+  the platform's WMM model via `android.hardware.GeomagneticField`.
+  The settings sheet adds a *Heading Reference* row to switch between
+  `MAG` and `TRUE`; the label updates to `TRACK·M` or `TRACK·T`.
+- `MagneticDeclination` helper (6 tests) and `FlightTimer` pure-function
+  state machine (12 tests).
+
+### Changed
+- **Heading default is now magnetic.** Previous releases showed true
+  track; existing users will see `TRACK·M` on first launch and can
+  switch back via settings.
+- Sky plot cardinal labels (N/S/E/W) re-centered — they were offset
+  7 dp to the left, which was most visible as N/S drifting off the
+  tick column below them.
+- Signal bars align with the sky plot's 16 dp horizontal inset; the
+  Galileo `E` chip used to overrun the plot's `S` label when many
+  constellations were visible.
+
 ## [0.2.0-alpha.1] — 2026-05-10
 
 First pre-release of the v0.2.0 Cockpit & Sensors milestone. Introduces

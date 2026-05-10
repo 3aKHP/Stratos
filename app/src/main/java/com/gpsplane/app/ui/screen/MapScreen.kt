@@ -55,7 +55,7 @@ fun MapScreen(gpsData: GpsData) {
 
     LaunchedEffect(context) {
         Configuration.getInstance().apply {
-            userAgentValue = "Stratos/0.2.0-alpha.1"
+            userAgentValue = "Stratos/0.2.0-alpha.2"
             // noBackupFilesDir so preloaded tiles survive cache eviction but
             // aren't swept into Google Auto Backup (25 MB per-app cap).
             osmdroidTileCache = context.noBackupFilesDir.resolve("osmdroid-v2")

@@ -15,8 +15,8 @@ android {
         applicationId = "com.gpsplane.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.2.0-alpha.1"
+        versionCode = 5
+        versionName = "0.2.0-alpha.2"
     }
 
     // Release signing: CI provides base64 keystore via env vars;
