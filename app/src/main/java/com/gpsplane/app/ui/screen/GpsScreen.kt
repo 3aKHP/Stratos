@@ -18,9 +18,11 @@ import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.data.FlightTimer
+import com.gpsplane.app.data.GForceRange
 import com.gpsplane.app.ui.component.BaroRow
 import com.gpsplane.app.ui.component.BottomRow
 import com.gpsplane.app.ui.component.CompactSignalBars
+import com.gpsplane.app.ui.component.GForcePopup
 import com.gpsplane.app.ui.component.LightMetricRow
 import com.gpsplane.app.ui.component.PrimaryInstrumentRow
 import com.gpsplane.app.ui.component.SkyPlot
@@ -37,6 +39,7 @@ fun GpsScreen(
     envData: EnvironmentData,
     flightSnap: FlightTimer.Snapshot,
     declinationDeg: Float,
+    gForce: GForceRange,
     recordingEnabled: Boolean,
     onRecordingEnabledChange: (Boolean) -> Unit,
     immersive: Boolean,
@@ -44,6 +47,7 @@ fun GpsScreen(
 ) {
     var unitConfig by remember { mutableStateOf(UnitConfig()) }
     var showConfig by remember { mutableStateOf(false) }
+    var showGForcePopup by remember { mutableStateOf(false) }
 
     if (showConfig) {
         UnitConfigSheet(
@@ -55,6 +59,10 @@ fun GpsScreen(
             onImmersiveChange = onImmersiveChange,
             onDismiss = { showConfig = false }
         )
+    }
+
+    if (showGForcePopup) {
+        GForcePopup(gForce = gForce, onDismiss = { showGForcePopup = false })
     }
 
     if (!gpsData.hasFix) {
@@ -132,6 +140,7 @@ fun GpsScreen(
             "LOAD" to if (attData.loadFactorG.isNaN()) "—" else "%.2fg".format(attData.loadFactorG),
             "TURN" to if (attData.turnRateDegPerSec.isNaN()) "—"
                       else "%+.0f°/s".format(attData.turnRateDegPerSec),
+            onLabelClick = { label -> if (label == "LOAD") showGForcePopup = true },
         )
 
         Spacer(Modifier.height(6.dp))

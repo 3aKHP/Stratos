@@ -23,6 +23,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.gpsplane.app.data.FlightTimer
+import com.gpsplane.app.data.GForceRange
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
@@ -144,6 +145,7 @@ fun MainScreen(
     val flightSnap = service?.flight?.collectAsState()?.value ?: FlightTimer.Snapshot.INITIAL
     val declinationDeg = service?.declinationDeg?.collectAsState()?.value ?: 0f
     val recordingEnabled = service?.recordingEnabledFlow?.collectAsState()?.value ?: true
+    val gForce = service?.gForce?.collectAsState()?.value ?: GForceRange.EMPTY
 
     Scaffold(
         bottomBar = {
@@ -176,6 +178,7 @@ fun MainScreen(
                 when (selectedTab) {
                     0 -> GpsScreen(
                         gpsData, attData, envData, flightSnap, declinationDeg,
+                        gForce = gForce,
                         recordingEnabled = recordingEnabled,
                         onRecordingEnabledChange = { service?.setRecordingEnabled(it) },
                         immersive = immersive,
