@@ -6,6 +6,37 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0-alpha.4] — 2026-05-10
+
+Fourth pre-release of v0.2.0. Moves GPS and sensor subscriptions into
+a foreground service so flight data keeps logging when the screen is
+off, and adds automatic GPX track recording.
+
+### Added
+- **Background GPS tracking.** A foreground service now owns the GPS
+  and sensor subscriptions for the whole app, with a persistent
+  notification showing current phase (GROUND / T+HH:MM:SS) and a Stop
+  action. Tracking keeps running when the app is backgrounded or the
+  screen turns off — the main passenger-use gap since v0.1.
+- **Automatic GPX track recording.** On takeoff (FlightTimer transition
+  into AIRBORNE), Stratos opens a new `.gpx` file under app storage
+  and writes one point per GPS sample until landing. Files are named
+  `YYYYMMDD-HHMMSS.gpx` in UTC and stored in
+  `filesDir/tracks/` (covered by Google Auto Backup; each flight is
+  well under the 25 MB per-app cap).
+- **Auto-record toggle.** The settings sheet gains a Recording
+  section; toggling off mid-flight closes the current file cleanly
+  and toggling back on starts a new one at the next sample.
+
+### Changed
+- **MainActivity data flow** is now sourced from a bound service, not
+  from direct `combine(gps, att, env)` flow collection. This unblocks
+  screen-off tracking and lets future features (track playback,
+  sharing) share the same state.
+- **`User-Agent` version** now derives from `BuildConfig.VERSION_NAME`
+  across `TilePreloader`, `MapScreen`, and `DownloadScreen` — the
+  three-place sync step is gone.
+
 ## [0.2.0-alpha.3] — 2026-05-10
 
 Third pre-release of v0.2.0. Fixes a long-standing correctness bug in
