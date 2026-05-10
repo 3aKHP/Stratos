@@ -39,6 +39,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -149,11 +151,33 @@ fun GpsScreen(
         Spacer(Modifier.height(6.dp))
 
         // ── Sky plot ──
+        // ── Sky plot ──
+        val hasAzimuth = attData.hasAzimuth && !attData.azimuth.isNaN()
+        val isMoving = gpsData.speedMps >= 1.5f
+        // rotationDeg: world bearing placed at the top of the dial.
+        // Moving → TRK-UP (top = GPS track)
+        // Stationary + compass valid → HDG-UP (top = phone heading)
+        // Stationary + no compass → NORTH-UP (0°) + "NO HEADING" degrade banner
+        val rotationDeg = when {
+            isMoving && gpsData.bearing >= 0f -> gpsData.bearing
+            hasAzimuth -> attData.azimuth
+            else -> 0f
+        }
+        // Fan means "phone pointing relative to the top of the dial".
+        // - HDG-UP: phone heading IS the top → fan would always point up → useless.
+        // - TRK-UP: fan shows the phone's angle vs the track → informative.
+        // - NORTH-UP degrade: no azimuth to draw → hidden.
+        val showOrientationFan = isMoving && hasAzimuth
+        val showNoHeadingLabel = !isMoving && !hasAzimuth
+
         SkyPlot(
             satellites = gpsData.satellites,
             azimuth = attData.azimuth.takeIf { attData.hasAzimuth },
             pitch = attData.pitch,
             roll = attData.roll,
+            rotationDeg = rotationDeg,
+            showOrientationFan = showOrientationFan,
+            showNoHeadingLabel = showNoHeadingLabel,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -264,12 +288,31 @@ private fun formatFlightTime(state: com.gpsplane.app.data.FlightTimerState): Str
 
 // ── Sky plot ────────────────────────────────────────────────────────────────
 
+/**
+ * Heading-stabilized sky plot.
+ *
+ * [rotationDeg] is the world compass bearing placed at the top of the dial:
+ *   0°  = NORTH UP
+ *   track = TRK UP (in motion)
+ *   phone azimuth = HDG UP (stationary)
+ *
+ * Internally everything compass-relative (ticks, cardinals, satellites,
+ * orientation fan) is drawn in world coordinates and transformed by a
+ * single Canvas rotation, so satellites stay anchored to their real sky
+ * position while N/S/E/W sweep to reflect how the dial is oriented.
+ *
+ * The artificial horizon (pitch/roll) belongs to the gravity frame and
+ * must NOT rotate with heading — it stays aligned to the screen.
+ */
 @Composable
 private fun SkyPlot(
     satellites: List<SatelliteInfo>,
     azimuth: Float?,
     pitch: Float,
     roll: Float,
+    rotationDeg: Float,
+    showOrientationFan: Boolean,
+    showNoHeadingLabel: Boolean,
     modifier: Modifier
 ) {
     Canvas(modifier = modifier) {
@@ -277,39 +320,84 @@ private fun SkyPlot(
         val cy = size.height / 2
         val r = minOf(cx, cy) - 4.dp.toPx()
 
-        // ── Fixed decorations ───────────────────────────────────────────
+        // ── Background (rotation-invariant) ─────────────────────────────
 
-        // Background disk
         drawCircle(Color.White.copy(alpha = 0.08f), r, Offset(cx, cy))
-
-        // Elevation rings: 30°, 60°
         for (el in listOf(0.33f, 0.66f)) {
             drawCircle(Color.White.copy(alpha = 0.14f), r * (1f - el), Offset(cx, cy))
         }
+        drawCircle(Color.White.copy(alpha = 0.2f), r, Offset(cx, cy),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
 
-        // Outer ring
-        drawCircle(Color.White.copy(alpha = 0.2f), r, Offset(cx, cy), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+        // ── Heading-stabilized layer ────────────────────────────────────
+        // Canvas.rotate is clockwise-positive; passing -rotationDeg puts
+        // the world bearing `rotationDeg` at the top of the canvas.
+        withTransform({ rotate(-rotationDeg, Offset(cx, cy)) }) {
 
-        // Tick marks (every 5°) around perimeter
-        // N at top (canvas 90°), so ticks go clockwise: 90°=N, 0°=E, 270°=S, 180°=W
-        for (i in 0..71) {
-            val deg = i * 5f
-            val rad = Math.toRadians(deg.toDouble()).toFloat()
-            val isCardinal = i % 18 == 0
-            val len = if (isCardinal) 10.dp.toPx() else 5.dp.toPx()
-            val outer = r
-            val inner = outer - len
-            val a = if (isCardinal) 0.45f else 0.2f
-            drawLine(Color.White.copy(alpha = a),
-                Offset(cx + outer * kotlin.math.cos(rad), cy - outer * kotlin.math.sin(rad)),
-                Offset(cx + inner * kotlin.math.cos(rad), cy - inner * kotlin.math.sin(rad)),
-                strokeWidth = if (isCardinal) 2f else 1f)
+            // Tick marks (every 5°) around perimeter.
+            // Math-convention angle: 90°=N (up), 0°=E (right), 270°=S, 180°=W.
+            for (i in 0..71) {
+                val deg = i * 5f
+                val rad = Math.toRadians(deg.toDouble()).toFloat()
+                val isCardinal = i % 18 == 0
+                val len = if (isCardinal) 10.dp.toPx() else 5.dp.toPx()
+                val outer = r
+                val inner = outer - len
+                val a = if (isCardinal) 0.45f else 0.2f
+                drawLine(Color.White.copy(alpha = a),
+                    Offset(cx + outer * kotlin.math.cos(rad), cy - outer * kotlin.math.sin(rad)),
+                    Offset(cx + inner * kotlin.math.cos(rad), cy - inner * kotlin.math.sin(rad)),
+                    strokeWidth = if (isCardinal) 2f else 1f)
+            }
+
+            // Phone orientation fan. World coordinate: compass azimuth of the
+            // phone's top edge. Under the rotation transform, when the dial
+            // is TRK-UP the fan automatically points to the phone's heading
+            // relative to the track — no manual subtraction needed.
+            if (showOrientationFan && azimuth != null && !azimuth.isNaN()) {
+                val azRad = Math.toRadians(azimuth.toDouble()).toFloat()
+                val haRad = Math.toRadians(15.0).toFloat()
+                val fanRadius = r * 0.7f
+                val fanRect = Rect(cx - fanRadius, cy - fanRadius, cx + fanRadius, cy + fanRadius)
+                val startAngleDeg = azimuth - 15f - 90f
+                val fanPath = Path().apply {
+                    moveTo(cx, cy)
+                    arcTo(fanRect, startAngleDeg, 30f, false)
+                    close()
+                }
+                drawPath(fanPath, Color.White.copy(alpha = 0.12f))
+                drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
+                    Offset(cx + fanRadius * kotlin.math.sin(azRad - haRad),
+                           cy - fanRadius * kotlin.math.cos(azRad - haRad)), strokeWidth = 1f)
+                drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
+                    Offset(cx + fanRadius * kotlin.math.sin(azRad + haRad),
+                           cy - fanRadius * kotlin.math.cos(azRad + haRad)), strokeWidth = 1f)
+            }
+
+            // Satellites — sat.azimuth is already a world compass bearing.
+            satellites.forEach { sat ->
+                val el = sat.elevation.coerceIn(0f, 89f)
+                val azRad = Math.toRadians(sat.azimuth.toDouble()).toFloat()
+                val dist = r * (1f - el / 90f)
+                val sx = cx + dist * kotlin.math.sin(azRad)
+                val sy = cy - dist * kotlin.math.cos(azRad)
+                val c = constellationColor(sat.constellationType)
+                val alpha = if (sat.usedInFix) 1f else 0.4f
+                val sr = (3.5f + sat.cn0DbHz / 12f).coerceIn(3f, 7f)
+
+                if (sat.usedInFix) {
+                    drawCircle(c.copy(alpha = 0.35f), sr + 1.5f, Offset(sx, sy))
+                }
+                drawCircle(c.copy(alpha = alpha), sr, Offset(sx, sy))
+            }
         }
 
-        // Cardinal labels: N@top(90°), E@right(0°), S@bottom(270°), W@left(180°).
-        // Paint.Align.CENTER handles horizontal centering; for vertical centering
-        // we offset the baseline by -(ascent+descent)/2 so the glyph's visual
-        // center sits on the target point.
+        // Center dot (rotation-invariant).
+        drawCircle(Color.White.copy(alpha = 0.5f), 2.dp.toPx(), Offset(cx, cy))
+
+        // ── Cardinal labels (upright, so drawn in screen space) ─────────
+        // Position by world-deg - rotationDeg so the N/S/E/W follow the dial
+        // while the glyphs themselves stay readable.
         val cardinalPaint = android.graphics.Paint().apply {
             color = 0x99FFFFFF.toInt()
             textSize = 12.dp.toPx()
@@ -319,9 +407,13 @@ private fun SkyPlot(
         }
         val baselineOffset = -(cardinalPaint.fontMetrics.ascent + cardinalPaint.fontMetrics.descent) / 2f
         val labels = mapOf(90f to "N", 0f to "E", 270f to "S", 180f to "W")
-        for ((deg, label) in labels) {
-            val rad = Math.toRadians(deg.toDouble()).toFloat()
-            val lr = r + 14.dp.toPx()
+        val lr = r + 14.dp.toPx()
+        for ((worldDeg, label) in labels) {
+            // worldDeg is math-convention (90=N); rotationDeg is compass bearing
+            // (0=N, +CW). To keep math N at screen-top when rotationDeg=0, we
+            // subtract rotationDeg (compass CW == math CCW as seen on screen).
+            val screenDeg = worldDeg - rotationDeg
+            val rad = Math.toRadians(screenDeg.toDouble()).toFloat()
             drawContext.canvas.nativeCanvas.drawText(
                 label,
                 cx + lr * kotlin.math.cos(rad),
@@ -330,7 +422,22 @@ private fun SkyPlot(
             )
         }
 
-        // ── Artificial horizon (pitch / roll) ───────────────────────────
+        // ── "NO HEADING" degrade banner ─────────────────────────────────
+
+        if (showNoHeadingLabel) {
+            val warnPaint = android.graphics.Paint().apply {
+                color = 0x66FFFFFF
+                textSize = 10.dp.toPx()
+                textAlign = android.graphics.Paint.Align.CENTER
+                isAntiAlias = true
+            }
+            drawContext.canvas.nativeCanvas.drawText(
+                "NO HEADING",
+                cx, cy + r * 0.25f, warnPaint
+            )
+        }
+
+        // ── Artificial horizon (gravity frame — NEVER rotate) ───────────
 
         if (!pitch.isNaN() && !roll.isNaN()) {
             val rollRad = Math.toRadians(roll.toDouble()).toFloat()
@@ -345,59 +452,12 @@ private fun SkyPlot(
                 Offset(cx + hw * cosR, lineY + hw * sinR),
                 strokeWidth = 2f
             )
-            // Center crosshair mark
             val markLen = 6.dp.toPx()
             drawLine(Color.White.copy(alpha = 0.35f),
                 Offset(cx - markLen * cosR, lineY - markLen * sinR),
                 Offset(cx + markLen * cosR, lineY + markLen * sinR),
                 strokeWidth = 3f)
         }
-
-        // ── Phone orientation fan ──────────────────────────────────────
-
-        if (azimuth != null && !azimuth.isNaN()) {
-            val azRad = Math.toRadians(azimuth.toDouble()).toFloat()
-            val haRad = Math.toRadians(15.0).toFloat() // ±15° half-angle
-            val fanRadius = r * 0.7f
-            val fanRect = Rect(cx - fanRadius, cy - fanRadius, cx + fanRadius, cy + fanRadius)
-            // arcTo uses canvas angles: 0°=right, clockwise downward
-            // Compass az → canvas angle: startAngle = az - 90 - 15
-            val startAngleDeg = azimuth - 15f - 90f
-            val fanPath = Path().apply {
-                moveTo(cx, cy)
-                arcTo(fanRect, startAngleDeg, 30f, false)
-                close()
-            }
-            drawPath(fanPath, Color.White.copy(alpha = 0.12f))
-            // Thin edge lines for the fan
-            drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
-                Offset(cx + fanRadius * kotlin.math.sin(azRad - haRad),
-                       cy - fanRadius * kotlin.math.cos(azRad - haRad)), strokeWidth = 1f)
-            drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
-                Offset(cx + fanRadius * kotlin.math.sin(azRad + haRad),
-                       cy - fanRadius * kotlin.math.cos(azRad + haRad)), strokeWidth = 1f)
-        }
-
-        // ── Satellites ───────────────────────────────────────────────────
-
-        satellites.forEach { sat ->
-            val el = sat.elevation.coerceIn(0f, 89f)
-            val azRad = Math.toRadians(sat.azimuth.toDouble()).toFloat()
-            val dist = r * (1f - el / 90f)
-            val sx = cx + dist * kotlin.math.sin(azRad)
-            val sy = cy - dist * kotlin.math.cos(azRad)
-            val c = constellationColor(sat.constellationType)
-            val alpha = if (sat.usedInFix) 1f else 0.4f
-            val sr = (3.5f + sat.cn0DbHz / 12f).coerceIn(3f, 7f)
-
-            if (sat.usedInFix) {
-                drawCircle(c.copy(alpha = 0.35f), sr + 1.5f, Offset(sx, sy))
-            }
-            drawCircle(c.copy(alpha = alpha), sr, Offset(sx, sy))
-        }
-
-        // Center dot
-        drawCircle(Color.White.copy(alpha = 0.5f), 2.dp.toPx(), Offset(cx, cy))
     }
 }
 
