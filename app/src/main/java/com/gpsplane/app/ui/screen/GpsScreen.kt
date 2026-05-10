@@ -27,9 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,7 +53,6 @@ import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.PressureMath
 import com.gpsplane.app.data.model.SatelliteInfo
 import com.gpsplane.app.util.UnitConverter
-import kotlinx.coroutines.delay
 
 // ── Unit enums ─────────────────────────────────────────────────────────────
 
@@ -119,17 +116,6 @@ fun GpsScreen(
     var unitConfig by remember { mutableStateOf(UnitConfig()) }
     var showConfig by remember { mutableStateOf(false) }
 
-    // Tick once per second so ZULU clock and airborne timer advance smoothly.
-    // The sensor flows wake up more often than 1 Hz, but neither of those
-    // readings needs sub-second resolution in the top bar.
-    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            nowMs = System.currentTimeMillis()
-            delay(1000L)
-        }
-    }
-
     if (showConfig) {
         UnitConfigSheet(
             config = unitConfig,
@@ -143,6 +129,10 @@ fun GpsScreen(
         return
     }
 
+    // GPS samples already arrive ~1 Hz, so the flight timer and the bottom
+    // clocks advance at the cadence users expect without a separate ticker.
+    val nowMs = gpsData.timestampMs
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -153,7 +143,6 @@ fun GpsScreen(
         TopBar(
             gpsData = gpsData,
             flightState = FlightTimer.display(flightSnap, nowMs),
-            nowMs = nowMs,
             onSettingsClick = { showConfig = true },
         )
 
@@ -219,7 +208,6 @@ fun GpsScreen(
 private fun TopBar(
     gpsData: GpsData,
     flightState: com.gpsplane.app.data.FlightTimerState,
-    nowMs: Long,
     onSettingsClick: () -> Unit,
 ) {
     Row(
@@ -240,15 +228,6 @@ private fun TopBar(
             modifier = Modifier.weight(1f)
         )
         Text(
-            formatZulu(nowMs),
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-            maxLines = 1, softWrap = false,
-            modifier = Modifier.weight(1f),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
-        Text(
             formatFlightTime(flightState),
             style = MaterialTheme.typography.labelMedium.copy(
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
@@ -256,8 +235,8 @@ private fun TopBar(
                 MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
             maxLines = 1, softWrap = false,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
             modifier = Modifier.weight(1f),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         IconButton(onClick = onSettingsClick, modifier = Modifier.size(32.dp)) {
             Icon(Icons.Filled.Settings, contentDescription = null,
@@ -695,12 +674,15 @@ private fun BottomRow(gpsData: GpsData, uc: UnitConfig) {
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
             maxLines = 1)
         Text(
-            "±%.1f m   %s".format(
-                gpsData.accuracyMeters,
+            "UTC %s   %s   ±%.1f m".format(
+                formatZulu(gpsData.timestampMs),
                 java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-                    .format(java.util.Date(gpsData.timestampMs))),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))
+                    .format(java.util.Date(gpsData.timestampMs)),
+                gpsData.accuracyMeters),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+            maxLines = 1)
     }
 }
 
