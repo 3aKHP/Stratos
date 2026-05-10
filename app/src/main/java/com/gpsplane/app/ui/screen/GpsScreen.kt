@@ -1,7 +1,6 @@
 package com.gpsplane.app.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,16 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SatelliteAlt
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -37,14 +30,16 @@ import androidx.compose.ui.unit.sp
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
-import com.gpsplane.app.data.FlightPhase
 import com.gpsplane.app.data.FlightTimer
 import com.gpsplane.app.data.MagneticDeclination
 import com.gpsplane.app.data.PressureMath
+import com.gpsplane.app.ui.component.BottomRow
 import com.gpsplane.app.ui.component.CompactSignalBars
 import com.gpsplane.app.ui.component.LightMetricRow
 import com.gpsplane.app.ui.component.PrimaryInstrumentRow
 import com.gpsplane.app.ui.component.SkyPlot
+import com.gpsplane.app.ui.component.TopBar
+import com.gpsplane.app.ui.component.WaitingState
 import com.gpsplane.app.ui.component.constellationColor
 import com.gpsplane.app.ui.component.constellationLabel
 import com.gpsplane.app.ui.format.AltUnit
@@ -57,8 +52,6 @@ import com.gpsplane.app.ui.format.fmtAlt
 import com.gpsplane.app.ui.format.fmtCoord
 import com.gpsplane.app.ui.format.fmtSpd
 import com.gpsplane.app.ui.format.fmtVS
-import com.gpsplane.app.ui.format.formatFlightTime
-import com.gpsplane.app.ui.format.formatZulu
 import com.gpsplane.app.ui.format.headingToCardinal
 import com.gpsplane.app.util.UnitConverter
 
@@ -183,50 +176,6 @@ fun GpsScreen(
     }
 }
 
-// ── Top bar ─────────────────────────────────────────────────────────────────
-
-@Composable
-private fun TopBar(
-    gpsData: GpsData,
-    flightState: com.gpsplane.app.data.FlightTimerState,
-    onSettingsClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val (color, label) = when {
-            gpsData.satelliteCount >= 4 -> MaterialTheme.colorScheme.primary to "3D Fix"
-            gpsData.hasFix -> MaterialTheme.colorScheme.tertiary to "2D Fix"
-            else -> MaterialTheme.colorScheme.error to "No Fix"
-        }
-        Text(
-            "$label · ${gpsData.satelliteCount} sats",
-            style = MaterialTheme.typography.labelMedium,
-            color = color,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1, softWrap = false,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            formatFlightTime(flightState),
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-            color = if (flightState.phase == FlightPhase.AIRBORNE)
-                MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-            maxLines = 1, softWrap = false,
-            textAlign = androidx.compose.ui.text.style.TextAlign.End,
-            modifier = Modifier.weight(1f),
-        )
-        IconButton(onClick = onSettingsClick, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Filled.Settings, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
 // ── Barometer row ───────────────────────────────────────────────────────────
 
 @Composable
@@ -283,59 +232,6 @@ private fun BaroCell(label: String, primary: String, secondary: String, modifier
                 fontFamily = FontFamily.Monospace),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
             maxLines = 1, softWrap = false)
-    }
-}
-
-// ── Bottom row ──────────────────────────────────────────────────────────────
-
-@Composable
-private fun BottomRow(gpsData: GpsData, uc: UnitConfig) {
-    val (lat1, lon1) = fmtCoord(gpsData.latitude, gpsData.longitude, uc.coord1)
-    val (lat2, lon2) = fmtCoord(gpsData.latitude, gpsData.longitude, uc.coord2)
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            "$lat1  $lon1",
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-            maxLines = 1)
-        Text(
-            "$lat2  $lon2",
-            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-            maxLines = 1)
-        Text(
-            "UTC %s   %s   ±%.1f m".format(
-                formatZulu(gpsData.timestampMs),
-                java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-                    .format(java.util.Date(gpsData.timestampMs)),
-                gpsData.accuracyMeters),
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 10.sp, fontFamily = FontFamily.Monospace),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-            maxLines = 1)
-    }
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-// ── Waiting state ───────────────────────────────────────────────────────────
-
-@Composable
-private fun WaitingState() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Filled.SatelliteAlt, contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-            Text("Waiting for GPS fix…",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-        }
     }
 }
 
