@@ -151,7 +151,6 @@ fun GpsScreen(
         // ── Sky plot ──
         SkyPlot(
             satellites = gpsData.satellites,
-            bearing = gpsData.bearing.takeIf { gpsData.speedMps > 1f },
             azimuth = attData.azimuth.takeIf { attData.hasAzimuth },
             pitch = attData.pitch,
             roll = attData.roll,
@@ -268,7 +267,6 @@ private fun formatFlightTime(state: com.gpsplane.app.data.FlightTimerState): Str
 @Composable
 private fun SkyPlot(
     satellites: List<SatelliteInfo>,
-    bearing: Float?,
     azimuth: Float?,
     pitch: Float,
     roll: Float,
@@ -378,29 +376,6 @@ private fun SkyPlot(
             drawLine(Color.White.copy(alpha = 0.25f), Offset(cx, cy),
                 Offset(cx + fanRadius * kotlin.math.sin(azRad + haRad),
                        cy - fanRadius * kotlin.math.cos(azRad + haRad)), strokeWidth = 1f)
-        }
-
-        // ── Airplane bearing needle (from center) ────────────────────────
-
-        if (bearing != null && bearing >= 0) {
-            val brRad = Math.toRadians(bearing.toDouble()).toFloat()
-            val sinB = kotlin.math.sin(brRad)
-            val cosB = kotlin.math.cos(brRad)
-            val tipX = cx + r * 0.88f * sinB
-            val tipY = cy - r * 0.88f * cosB
-            // Shaft from center to near-tip
-            drawLine(Color.Red.copy(alpha = 0.9f), Offset(cx, cy), Offset(tipX, tipY), strokeWidth = 3f)
-            // Airplane triangle at tip — base positioned just behind tip
-            val wingLen = 12.dp.toPx()
-            val baseX = cx + r * 0.74f * sinB
-            val baseY = cy - r * 0.74f * cosB
-            val path = Path().apply {
-                moveTo(tipX, tipY)
-                lineTo(baseX + wingLen * cosB, baseY + wingLen * sinB)
-                lineTo(baseX - wingLen * cosB, baseY - wingLen * sinB)
-                close()
-            }
-            drawPath(path, Color.Red.copy(alpha = 0.9f))
         }
 
         // ── Satellites ───────────────────────────────────────────────────
