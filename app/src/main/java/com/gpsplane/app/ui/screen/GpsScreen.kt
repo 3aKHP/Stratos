@@ -25,6 +25,7 @@ import com.gpsplane.app.ui.component.BottomRow
 import com.gpsplane.app.ui.component.CompactSignalBars
 import com.gpsplane.app.ui.component.GForcePopup
 import com.gpsplane.app.ui.component.LightMetricRow
+import com.gpsplane.app.ui.component.MOVING_THRESHOLD_MPS
 import com.gpsplane.app.ui.component.PrimaryInstrumentRow
 import com.gpsplane.app.ui.component.SkyPlot
 import com.gpsplane.app.ui.component.TopBar
@@ -94,7 +95,7 @@ fun GpsScreen(
 
         // ── Sky plot ──
         val hasAzimuth = attData.hasAzimuth && !attData.azimuth.isNaN()
-        val isMoving = gpsData.speedMps >= 1.5f
+        val isMoving = gpsData.speedMps >= MOVING_THRESHOLD_MPS
         // rotationDeg: world bearing placed at the top of the dial.
         // Moving → TRK-UP (top = GPS track)
         // Stationary + compass valid → HDG-UP (top = phone heading)
