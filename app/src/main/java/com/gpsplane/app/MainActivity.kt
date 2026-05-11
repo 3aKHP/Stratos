@@ -38,6 +38,7 @@ import com.gpsplane.app.ui.theme.GpsPlaneTheme
 class MainActivity : ComponentActivity() {
 
     private var hasLocationPermission = false
+    private var immersiveActive = false
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
             GpsPlaneTheme {
                 var immersive by rememberSaveable { mutableStateOf(false) }
                 LaunchedEffect(immersive) {
+                    immersiveActive = immersive
                     applyImmersive(immersive)
                 }
                 MainScreen(
@@ -92,6 +94,15 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Some OEM skins reset the decor UI flags on focus change
+        // (e.g. returning from a dialog or the recents screen), which
+        // would silently un-hide the system bars while the user's
+        // immersive preference is still ON.
+        if (hasFocus && immersiveActive) applyImmersive(true)
     }
 
     private fun applyImmersive(enabled: Boolean) {
