@@ -71,7 +71,11 @@ internal fun PrimaryInstrumentRow(
     declinationDeg: Float,
 ) {
     // GPS track is always true-north; convert only when MAG is selected.
-    val shownBearing = if (gpsData.bearing < 0) gpsData.bearing
+    // Android's GPS_PROVIDER leaves Location.bearing stuck at the last
+    // in-motion value once the device stops moving, so gate on the same
+    // 1.5 m/s threshold SkyPlot uses to drop TRK-UP.
+    val hasTrack = gpsData.bearing >= 0f && gpsData.speedMps >= 1.5f
+    val shownBearing = if (!hasTrack) -1f
         else when (unitConfig.headingRef) {
             HeadingRef.TRUE -> gpsData.bearing
             HeadingRef.MAG -> MagneticDeclination.trueToMagnetic(gpsData.bearing, declinationDeg)
