@@ -15,10 +15,16 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.gpsplane.app.data.FlightTimer
+import com.gpsplane.app.data.GForceRange
+import com.gpsplane.app.data.SunTimes
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
@@ -32,6 +38,7 @@ import com.gpsplane.app.ui.theme.GpsPlaneTheme
 class MainActivity : ComponentActivity() {
 
     private var hasLocationPermission = false
+    private var immersiveActive = false
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -74,11 +81,40 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             GpsPlaneTheme {
+                var immersive by rememberSaveable { mutableStateOf(false) }
+                LaunchedEffect(immersive) {
+                    immersiveActive = immersive
+                    applyImmersive(immersive)
+                }
                 MainScreen(
                     hasPermission = hasLocationPermission,
+                    immersive = immersive,
+                    onImmersiveChange = { immersive = it },
                     onRequestPermission = { requestPermissions() }
                 )
             }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Some OEM skins reset the decor UI flags on focus change
+        // (e.g. returning from a dialog or the recents screen), which
+        // would silently un-hide the system bars while the user's
+        // immersive preference is still ON.
+        if (hasFocus && immersiveActive) applyImmersive(true)
+    }
+
+    private fun applyImmersive(enabled: Boolean) {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        if (enabled) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            controller.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 
@@ -107,6 +143,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     hasPermission: Boolean,
+    immersive: Boolean,
+    onImmersiveChange: (Boolean) -> Unit,
     onRequestPermission: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
@@ -119,6 +157,8 @@ fun MainScreen(
     val flightSnap = service?.flight?.collectAsState()?.value ?: FlightTimer.Snapshot.INITIAL
     val declinationDeg = service?.declinationDeg?.collectAsState()?.value ?: 0f
     val recordingEnabled = service?.recordingEnabledFlow?.collectAsState()?.value ?: true
+    val gForce = service?.gForce?.collectAsState()?.value ?: GForceRange.EMPTY
+    val sunTimes = service?.sunTimes?.collectAsState()?.value ?: SunTimes.UNKNOWN
 
     Scaffold(
         bottomBar = {
@@ -151,8 +191,12 @@ fun MainScreen(
                 when (selectedTab) {
                     0 -> GpsScreen(
                         gpsData, attData, envData, flightSnap, declinationDeg,
+                        gForce = gForce,
+                        sunTimes = sunTimes,
                         recordingEnabled = recordingEnabled,
                         onRecordingEnabledChange = { service?.setRecordingEnabled(it) },
+                        immersive = immersive,
+                        onImmersiveChange = onImmersiveChange,
                     )
                     1 -> MapScreen(gpsData)
                     2 -> DownloadScreen(gpsData)

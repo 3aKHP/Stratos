@@ -18,10 +18,14 @@ import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.data.FlightTimer
+import com.gpsplane.app.data.GForceRange
+import com.gpsplane.app.data.SunTimes
 import com.gpsplane.app.ui.component.BaroRow
 import com.gpsplane.app.ui.component.BottomRow
 import com.gpsplane.app.ui.component.CompactSignalBars
+import com.gpsplane.app.ui.component.GForcePopup
 import com.gpsplane.app.ui.component.LightMetricRow
+import com.gpsplane.app.ui.component.MOVING_THRESHOLD_MPS
 import com.gpsplane.app.ui.component.PrimaryInstrumentRow
 import com.gpsplane.app.ui.component.SkyPlot
 import com.gpsplane.app.ui.component.TopBar
@@ -37,11 +41,16 @@ fun GpsScreen(
     envData: EnvironmentData,
     flightSnap: FlightTimer.Snapshot,
     declinationDeg: Float,
+    gForce: GForceRange,
+    sunTimes: SunTimes,
     recordingEnabled: Boolean,
     onRecordingEnabledChange: (Boolean) -> Unit,
+    immersive: Boolean,
+    onImmersiveChange: (Boolean) -> Unit,
 ) {
     var unitConfig by remember { mutableStateOf(UnitConfig()) }
     var showConfig by remember { mutableStateOf(false) }
+    var showGForcePopup by remember { mutableStateOf(false) }
 
     if (showConfig) {
         UnitConfigSheet(
@@ -49,8 +58,14 @@ fun GpsScreen(
             onConfigChange = { unitConfig = it },
             recordingEnabled = recordingEnabled,
             onRecordingEnabledChange = onRecordingEnabledChange,
+            immersive = immersive,
+            onImmersiveChange = onImmersiveChange,
             onDismiss = { showConfig = false }
         )
+    }
+
+    if (showGForcePopup) {
+        GForcePopup(gForce = gForce, onDismiss = { showGForcePopup = false })
     }
 
     if (!gpsData.hasFix) {
@@ -72,6 +87,7 @@ fun GpsScreen(
         TopBar(
             gpsData = gpsData,
             flightState = FlightTimer.display(flightSnap, nowMs),
+            sunTimes = sunTimes,
             onSettingsClick = { showConfig = true },
         )
 
@@ -79,7 +95,7 @@ fun GpsScreen(
 
         // ── Sky plot ──
         val hasAzimuth = attData.hasAzimuth && !attData.azimuth.isNaN()
-        val isMoving = gpsData.speedMps >= 1.5f
+        val isMoving = gpsData.speedMps >= MOVING_THRESHOLD_MPS
         // rotationDeg: world bearing placed at the top of the dial.
         // Moving → TRK-UP (top = GPS track)
         // Stationary + compass valid → HDG-UP (top = phone heading)
@@ -128,6 +144,7 @@ fun GpsScreen(
             "LOAD" to if (attData.loadFactorG.isNaN()) "—" else "%.2fg".format(attData.loadFactorG),
             "TURN" to if (attData.turnRateDegPerSec.isNaN()) "—"
                       else "%+.0f°/s".format(attData.turnRateDegPerSec),
+            onLabelClick = { label -> if (label == "LOAD") showGForcePopup = true },
         )
 
         Spacer(Modifier.height(6.dp))

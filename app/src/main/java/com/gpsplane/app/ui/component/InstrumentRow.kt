@@ -1,5 +1,6 @@
 package com.gpsplane.app.ui.component
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,16 +23,35 @@ import com.gpsplane.app.ui.format.fmtVS
 import com.gpsplane.app.ui.format.headingToCardinal
 
 /**
+ * Ground speed below which GPS bearing is considered stale and heading
+ * widgets should drop their TRK-UP / TRACK rendering. Android's
+ * GPS_PROVIDER keeps [android.location.Location.bearing] at its last
+ * in-motion value once the device stops moving, so the threshold also
+ * gates the TRACK cell (see [PrimaryInstrumentRow]) and SkyPlot's
+ * TRK-UP rotation (see GpsScreen).
+ */
+internal const val MOVING_THRESHOLD_MPS = 1.5f
+
+/**
  * Six-column light metric row: MACH | PITCH | ROLL | ACC | LOAD | TURN.
+ * [onLabelClick], if non-null, is invoked when a cell with a matching
+ * label is tapped — used today to pop the G-meter min/max bubble on
+ * LOAD; ignored for cells whose labels don't match.
  */
 @Composable
 internal fun LightMetricRow(
-    vararg cols: Pair<String, String>
+    vararg cols: Pair<String, String>,
+    onLabelClick: ((String) -> Unit)? = null,
 ) {
     Row(modifier = Modifier.fillMaxWidth()) {
         cols.forEach { (label, value) ->
+            val cellModifier = Modifier
+                .weight(1f)
+                .let { m ->
+                    if (onLabelClick != null) m.clickable { onLabelClick(label) } else m
+                }
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = cellModifier,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(label,
@@ -61,7 +81,11 @@ internal fun PrimaryInstrumentRow(
     declinationDeg: Float,
 ) {
     // GPS track is always true-north; convert only when MAG is selected.
-    val shownBearing = if (gpsData.bearing < 0) gpsData.bearing
+    // Android's GPS_PROVIDER leaves Location.bearing stuck at the last
+    // in-motion value once the device stops moving, so gate on the same
+    // threshold SkyPlot uses to drop TRK-UP.
+    val hasTrack = gpsData.bearing >= 0f && gpsData.speedMps >= MOVING_THRESHOLD_MPS
+    val shownBearing = if (!hasTrack) -1f
         else when (unitConfig.headingRef) {
             HeadingRef.TRUE -> gpsData.bearing
             HeadingRef.MAG -> MagneticDeclination.trueToMagnetic(gpsData.bearing, declinationDeg)

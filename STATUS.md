@@ -25,8 +25,8 @@
 - **v0.1.1** — 已合 main，未打 tag（CHANGELOG 仍是 Unreleased）
 - **v0.1.2** — 已合 main，未打 tag（CHANGELOG 仍是 Unreleased）
 - **v0.2.0-alpha.1** — 已合 main，未打 tag（CHANGELOG 仍是 Unreleased）
-- **v0.2.0-alpha.2 / alpha.3** — 已合 main
-- **v0.2.0-alpha.4** — PR 审阅中（前台服务 + GPX 记录）
+- **v0.2.0-alpha.2 / alpha.3 / alpha.4** — 已合 main
+- **v0.2.0-beta.1** — 开发中（G-meter min/max + sunrise/sunset + immersive mode）
 
 "合了 main 但没 tag" 是刻意的——每个 milestone 打 tag 时一并决策要不要把前面积攒的修订也 tag 出来。
 
@@ -99,6 +99,12 @@ docs/
 - **TilePreloader 走廊宽度纬度修正**：当前 `corridorTiles` 忽略 `cos(lat)`，高纬度走廊偏窄。独立 PR
 - **Dashboard 无气压计时是否隐藏 BaroRow**：当前保持显示 "no baro"
 - **`GpsScreen.kt` 拆分**：已完成（split into ui/format/ + ui/component/）
+- **`SunPositionNoaa` / `SunTimes` 模块重构**（推迟到下个子版本一并处理）：
+  - 极昼/极夜下 `SunTimes(null, null)` 与 `UNKNOWN` `equals` 相同，`MutableStateFlow` 去重导致极昼永远渲染为 `--`（B1）
+  - `compute` 按 `referenceUtcMs` 的 UTC 日期取 N，东经大经度会跳过"当地今天的下一个日出日落"（B2；东京/悉尼场景可复现）
+  - `sunIsUpAtNoon` 临界角用 `0°` 而非 `-0.833°`，极圈附近约 50 km 纬度误判（S5）
+  - SunPositionNoaaTest 缺东经用例（S1）
+  - 每个 GPS sample 都重算，应缓存 `(当地日期, ~1° 网格)`（S3）
 
 ### 观感 / 性能
 

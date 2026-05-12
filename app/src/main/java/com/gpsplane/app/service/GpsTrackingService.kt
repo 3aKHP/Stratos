@@ -18,8 +18,12 @@ import com.gpsplane.app.data.AttitudeRepository
 import com.gpsplane.app.data.EnvironmentRepository
 import com.gpsplane.app.data.FlightPhase
 import com.gpsplane.app.data.FlightTimer
+import com.gpsplane.app.data.GForceRange
+import com.gpsplane.app.data.GForceTracker
 import com.gpsplane.app.data.GpsRepository
 import com.gpsplane.app.data.MagneticDeclination
+import com.gpsplane.app.data.SunPositionNoaa
+import com.gpsplane.app.data.SunTimes
 import com.gpsplane.app.data.model.AttitudeData
 import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
@@ -72,6 +76,8 @@ class GpsTrackingService : Service() {
     private val _declinationDeg = MutableStateFlow(0f)
     private val _recording = MutableStateFlow(false)
     private val _recordingEnabled = MutableStateFlow(true)
+    private val _gForce = MutableStateFlow(GForceRange.EMPTY)
+    private val _sunTimes = MutableStateFlow(SunTimes.UNKNOWN)
 
     val gps: StateFlow<GpsData> get() = _gps.asStateFlow()
     val attitude: StateFlow<AttitudeData> get() = _attitude.asStateFlow()
@@ -80,6 +86,8 @@ class GpsTrackingService : Service() {
     val declinationDeg: StateFlow<Float> get() = _declinationDeg.asStateFlow()
     val recording: StateFlow<Boolean> get() = _recording.asStateFlow()
     val recordingEnabledFlow: StateFlow<Boolean> get() = _recordingEnabled.asStateFlow()
+    val gForce: StateFlow<GForceRange> get() = _gForce.asStateFlow()
+    val sunTimes: StateFlow<SunTimes> get() = _sunTimes.asStateFlow()
 
     /**
      * Toggle GPX recording on the fly. Stored on a StateFlow and applied
@@ -148,10 +156,16 @@ class GpsTrackingService : Service() {
                         _declinationDeg.value = MagneticDeclination.degreesEast(
                             gps.latitude, gps.longitude, gps.altitudeMeters, gps.timestampMs
                         )
+                        _sunTimes.value = SunPositionNoaa.compute(
+                            gps.latitude, gps.longitude, gps.timestampMs
+                        )
                         s
                     } else {
                         _flight.value
                     }
+                    _gForce.value = GForceTracker.update(
+                        _gForce.value, att.loadFactorG, snap.phase, snap.airborneSinceMs
+                    )
                     // Feed every sample to the recorder — it handles the
                     // no-fix and non-AIRBORNE cases, and crucially updates
                     // its phase memo even on no-fix samples so a transition

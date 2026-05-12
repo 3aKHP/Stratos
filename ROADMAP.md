@@ -16,17 +16,17 @@
 - [x] **Magnetic Declination / 磁偏角** — 根据 GPS 坐标计算真北与磁北偏差 *(alpha.2)*
 
 ### Dynamics & Turbulence / 动态与颠簸
-- [ ] **G-Meter Min/Max / 极限过载** — 记录本次飞行最大正 G 和最小负 G *(beta.1)*
+- [x] **G-Meter Min/Max / 极限过载** — 记录本次飞行最大正 G 和最小负 G *(beta.1)*
 - [x] **Turn Rate / 转弯率** — 陀螺仪偏航角速度（°/sec） *(alpha.1)*
 
 ### Environment / 环境
-- [ ] **Sunrise/Sunset / 日出日落** — 基于 GPS 坐标的天文算法，无网计算当前位置日出日落时间 *(beta.1)*
+- [x] **Sunrise/Sunset / 日出日落** — 基于 GPS 坐标的天文算法，无网计算当前位置日出日落时间 *(beta.1)*
 
 ### Flight Tracking / 飞行记录
 - [x] Foreground service with persistent notification（前台服务防 GPS 休眠） *(alpha.4)*
 - [x] Flight track recording / 航迹记录（GPX 导出） *(alpha.4)*
 - [x] Takeoff/landing auto-detection / 起降自动检测 *(alpha.2 state machine + alpha.4 drive)*
-- [ ] Full-screen / immersive mode / 全屏沉浸模式 *(beta.1)*
+- [x] Full-screen / immersive mode / 全屏沉浸模式 *(beta.1)*
 
 ### Polish / 打磨
 - [ ] Instrumentation tests / 仪器测试
