@@ -20,48 +20,44 @@ class AstroTimeTest {
         assertThat(AstroTime.julianCentury(2451545.0)).isEqualTo(0.0)
     }
 
+    // The ±0.07 sec accuracy is a literature claim (Meeus Ch. 27).  These
+    // tests verify the algorithm produces physically correct values on
+    // well-known dates; year-to-year drift (~30 sec) and the slight
+    // calendar-date mismatch mean sub-second tolerances are inappropriate
+    // for date-based EoT spot checks.
+
     @Test fun `EoT near February minimum`() {
-        // ~ Feb 11 is the negative peak (sundial slow, -14.2 min).
         val ms = utcMs(2026, 2, 11)
         val eot = AstroTime.equationOfTimeSeconds(ms)
-        assertThat(eot).isLessThan(-840.0)  // -14 min
-        assertThat(eot).isGreaterThan(-870.0) // -14.5 min
+        assertThat(eot).isLessThan(-840.0)
+        assertThat(eot).isGreaterThan(-870.0)
     }
 
     @Test fun `EoT near November maximum`() {
-        // ~ Nov 3 is the positive peak (sundial fast, +16.4 min).
         val ms = utcMs(2026, 11, 3)
         val eot = AstroTime.equationOfTimeSeconds(ms)
-        assertThat(eot).isGreaterThan(970.0)  // +16.2 min
-        assertThat(eot).isLessThan(1000.0)    // +16.7 min
+        assertThat(eot).isGreaterThan(970.0)
+        assertThat(eot).isLessThan(1000.0)
     }
 
-    @Test fun `EoT near April minimum-crossing`() {
-        // Apr 16 is typically near zero.
+    @Test fun `EoT near April zero-crossing`() {
         val ms = utcMs(2026, 4, 16)
-        val eot = AstroTime.equationOfTimeSeconds(ms)
-        assertThat(Math.abs(eot)).isLessThan(60.0)
+        assertThat(Math.abs(AstroTime.equationOfTimeSeconds(ms))).isLessThan(30.0)
     }
 
-    @Test fun `EoT near June maximum-crossing`() {
-        // Jun 13 is typically near zero.
+    @Test fun `EoT near June zero-crossing`() {
         val ms = utcMs(2026, 6, 13)
-        val eot = AstroTime.equationOfTimeSeconds(ms)
-        assertThat(Math.abs(eot)).isLessThan(60.0)
+        assertThat(Math.abs(AstroTime.equationOfTimeSeconds(ms))).isLessThan(30.0)
     }
 
-    @Test fun `EoT near September maximum-crossing`() {
-        // Sep 1 is typically near zero.
+    @Test fun `EoT near September zero-crossing`() {
         val ms = utcMs(2026, 9, 1)
-        val eot = AstroTime.equationOfTimeSeconds(ms)
-        assertThat(Math.abs(eot)).isLessThan(60.0)
+        assertThat(Math.abs(AstroTime.equationOfTimeSeconds(ms))).isLessThan(30.0)
     }
 
-    @Test fun `EoT near December minimum-crossing`() {
-        // Dec 25 is typically near zero.
+    @Test fun `EoT near December zero-crossing`() {
         val ms = utcMs(2026, 12, 25)
-        val eot = AstroTime.equationOfTimeSeconds(ms)
-        assertThat(Math.abs(eot)).isLessThan(60.0)
+        assertThat(Math.abs(AstroTime.equationOfTimeSeconds(ms))).isLessThan(30.0)
     }
 
     @Test fun `solar time at Greenwich noon`() {

@@ -1,7 +1,5 @@
 package com.gpsplane.app.data
 
-import java.util.Calendar
-import java.util.TimeZone
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin

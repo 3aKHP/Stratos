@@ -156,6 +156,39 @@ class FormattersTest {
         assertThat(formatSunTimes(day, SunTimeRef.UTC, 0.0)).isEqualTo("SR ++  SS ++")
     }
 
+    @Test fun `formatSunTimes Solar mode matches AstroTime`() {
+        val sunrise = 1_782_033_780_000L // 2026-06-21T09:23:00Z
+        val sunset = 1_782_080_520_000L  // 2026-06-21T22:22:00Z
+        val times = com.gpsplane.app.data.SunTimes(sunriseUtcMs = sunrise, sunsetUtcMs = sunset)
+        // Greenwich: solar time computed by AstroTime.
+        val expectSr = solarHhmm(sunrise, 0.0)
+        val expectSs = solarHhmm(sunset, 0.0)
+        assertThat(formatSunTimes(times, SunTimeRef.SOLAR, 0.0))
+            .isEqualTo("SR $expectSr  SS $expectSs")
+    }
+
+    @Test fun `formatSunTimes Solar mode at eastern longitude`() {
+        val sunrise = 1_782_033_780_000L
+        val sunset = 1_782_080_520_000L
+        val times = com.gpsplane.app.data.SunTimes(sunriseUtcMs = sunrise, sunsetUtcMs = sunset)
+        // Tokyo: lon ≈ 139.8°E. Verify solar times differ from Greenwich.
+        val tokyo = formatSunTimes(times, SunTimeRef.SOLAR, 139.8)
+        val greenwich = formatSunTimes(times, SunTimeRef.SOLAR, 0.0)
+        assertThat(tokyo).isNotEqualTo(greenwich)
+        // Still valid format (no Z suffix).
+        assertThat(tokyo).doesNotContain("Z")
+        assertThat(tokyo).matches("SR \\d{2}:\\d{2}  SS \\d{2}:\\d{2}")
+    }
+
+    @Test fun `formatSunTimes Local mode produces valid HH MM without Z`() {
+        val sunrise = 1_782_033_780_000L
+        val sunset = 1_782_080_520_000L
+        val times = com.gpsplane.app.data.SunTimes(sunriseUtcMs = sunrise, sunsetUtcMs = sunset)
+        val result = formatSunTimes(times, SunTimeRef.LOCAL, 0.0)
+        assertThat(result).doesNotContain("Z")
+        assertThat(result).matches("SR \\d{2}:\\d{2}  SS \\d{2}:\\d{2}")
+    }
+
     // ── formatSolarTime ────────────────────────────────────────────────
 
     @Test fun `formatSolarTime returns valid HH MM SS`() {
@@ -163,7 +196,6 @@ class FormattersTest {
             clear(); set(2026, 2, 20, 12, 0, 0) // March = 2
         }.timeInMillis
         val result = formatSolarTime(ms, 0.0)
-        // Must match HH:MM:SS with valid ranges.
         val parts = result.split(":")
         assertThat(parts).hasSize(3)
         val h = parts[0].toInt()
@@ -174,6 +206,23 @@ class FormattersTest {
         assertThat(s).isIn(0..59)
         // At Greenwich noon (EoT ~ -7.5 min on Mar 20), solar time ≈ 11:52:30.
         assertThat(h).isEqualTo(11)
-        assertThat(m).isIn(48..56) // ±4 min tolerance
+        assertThat(m).isIn(48..56)
+    }
+
+    @Test fun `formatSolarTime at 15 degrees East is about 1h ahead`() {
+        val ms = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            clear(); set(2026, 2, 20, 11, 0, 0)
+        }.timeInMillis
+        val result = formatSolarTime(ms, 15.0)
+        val h = result.split(":")[0].toInt()
+        // UTC 11:00 + lon=15°E → mean local ≈ 12:00, EoT ≈ -7.5 min → ~11:52.
+        assertThat(h).isEqualTo(11)
+    }
+
+    companion object {
+        private fun solarHhmm(utcMs: Long, lonDeg: Double): String {
+            val msOfDay = com.gpsplane.app.data.AstroTime.apparentSolarMs(utcMs, lonDeg)
+            return "%02d:%02d".format((msOfDay / 3_600_000) % 24, (msOfDay / 60_000) % 60)
+        }
     }
 }

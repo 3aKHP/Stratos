@@ -27,7 +27,7 @@ internal enum class HeadingRef(val label: String) {
 }
 
 internal enum class SunTimeRef(val label: String) {
-    UTC("UTC"), LAST("Solar"), LOCAL("Local")
+    UTC("UTC"), SOLAR("Solar"), LOCAL("Local")
 }
 
 internal data class UnitConfig(

@@ -22,6 +22,8 @@ data class SunTimes(
     val isPolarDay: Boolean get() = polarCase == PolarCase.DAY
     val isPolarNight: Boolean get() = polarCase == PolarCase.NIGHT
 
+    // Must be public (not internal) because it appears in the primary
+    // constructor of the public data class SunTimes.
     enum class PolarCase { NORMAL, DAY, NIGHT }
 
     companion object {
@@ -179,9 +181,9 @@ object SunPositionNoaa {
         l = wrapDeg(l)
         val sinDec = 0.39782 * sin(Math.toRadians(l))
         val decDeg = Math.toDegrees(Math.asin(sinDec))
-        // Solar noon altitude with civil refraction correction:
-        // the sun is visible when its geometric altitude > -0.833°.
-        return (90.0 - kotlin.math.abs(latDeg - decDeg)) > -0.833
+        // Solar noon altitude with the same civil-refraction correction
+        // as the main zenith angle: visible when altitude > 90° - ZENITH_DEG.
+        return (90.0 - kotlin.math.abs(latDeg - decDeg)) > (90.0 - ZENITH_DEG)
     }
 
     private fun wrapDeg(v: Double): Double = ((v % 360.0) + 360.0) % 360.0

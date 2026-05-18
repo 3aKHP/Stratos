@@ -34,7 +34,7 @@ import com.gpsplane.app.ui.format.formatZulu
 
 /**
  * Bottom info block: two lines of coordinates plus a timestamp line
- * (`UTC HH:MM:SSZ   local HH:MM:SS   ±X.X m`).
+ * (`UTC HH:MM:SSZ   Solar HH:MM:SS   Local HH:MM:SS   ±X.X m`).
  */
 @Composable
 internal fun BottomRow(gpsData: GpsData, uc: UnitConfig) {

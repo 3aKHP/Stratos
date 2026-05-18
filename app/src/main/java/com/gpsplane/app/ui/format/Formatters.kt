@@ -110,7 +110,7 @@ internal fun formatSunTimes(times: SunTimes, ref: SunTimeRef, lonDeg: Double): S
     fun fmt(utcMs: Long): String = when (ref) {
         SunTimeRef.UTC -> utcHhmmFormatter.format(java.util.Date(utcMs)) + "Z"
         SunTimeRef.LOCAL -> localHhmmFormatter.format(java.util.Date(utcMs))
-        SunTimeRef.LAST -> {
+        SunTimeRef.SOLAR -> {
             val msOfDay = com.gpsplane.app.data.AstroTime.apparentSolarMs(utcMs, lonDeg)
             "%02d:%02d".format((msOfDay / 3_600_000) % 24, (msOfDay / 60_000) % 60)
         }
