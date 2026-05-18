@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.sp
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.ui.format.UnitConfig
 import com.gpsplane.app.ui.format.fmtCoord
+import com.gpsplane.app.ui.format.formatLocalTime
+import com.gpsplane.app.ui.format.formatSolarTime
 import com.gpsplane.app.ui.format.formatZulu
 
 /**
@@ -55,10 +57,10 @@ internal fun BottomRow(gpsData: GpsData, uc: UnitConfig) {
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
             maxLines = 1)
         Text(
-            "UTC %s   %s   ±%.1f m".format(
+            "UTC %s   Solar %s   Local %s   ±%.1f m".format(
                 formatZulu(gpsData.timestampMs),
-                java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-                    .format(java.util.Date(gpsData.timestampMs)),
+                formatSolarTime(gpsData.timestampMs, gpsData.longitude),
+                formatLocalTime(gpsData.timestampMs),
                 gpsData.accuracyMeters),
             style = MaterialTheme.typography.labelSmall.copy(
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace),

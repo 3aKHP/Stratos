@@ -3,6 +3,7 @@ package com.gpsplane.app.ui.format
 import com.google.common.truth.Truth.assertThat
 import com.gpsplane.app.data.FlightPhase
 import com.gpsplane.app.data.FlightTimerState
+import com.gpsplane.app.ui.format.SunTimeRef
 import org.junit.Test
 
 class FormattersTest {
@@ -140,20 +141,39 @@ class FormattersTest {
         val sunrise = 1_782_033_780_000L
         val sunset = 1_782_080_520_000L
         val times = com.gpsplane.app.data.SunTimes(sunriseUtcMs = sunrise, sunsetUtcMs = sunset)
-        assertThat(formatSunTimes(times)).isEqualTo("SR 09:23Z  SS 22:22Z")
+        assertThat(formatSunTimes(times, SunTimeRef.UTC, 0.0)).isEqualTo("SR 09:23Z  SS 22:22Z")
     }
 
     @Test
     fun `formatSunTimes shows double-dash on polar night`() {
-        val night = com.gpsplane.app.data.SunTimes.Companion.let {
-            com.gpsplane.app.data.SunPositionNoaa.compute(latDeg = 80.0, lonDeg = 0.0, referenceUtcMs = 1_671_537_600_000L) // 2022-12-20
-        }
-        assertThat(formatSunTimes(night)).isEqualTo("SR --  SS --")
+        val night = com.gpsplane.app.data.SunPositionNoaa.compute(latDeg = 80.0, lonDeg = 0.0, referenceUtcMs = 1_671_537_600_000L)
+        assertThat(formatSunTimes(night, SunTimeRef.UTC, 0.0)).isEqualTo("SR --  SS --")
     }
 
     @Test
     fun `formatSunTimes shows double-plus on polar day`() {
-        val day = com.gpsplane.app.data.SunPositionNoaa.compute(latDeg = 80.0, lonDeg = 0.0, referenceUtcMs = 1_655_769_600_000L) // 2022-06-21
-        assertThat(formatSunTimes(day)).isEqualTo("SR ++  SS ++")
+        val day = com.gpsplane.app.data.SunPositionNoaa.compute(latDeg = 80.0, lonDeg = 0.0, referenceUtcMs = 1_655_769_600_000L)
+        assertThat(formatSunTimes(day, SunTimeRef.UTC, 0.0)).isEqualTo("SR ++  SS ++")
+    }
+
+    // ── formatSolarTime ────────────────────────────────────────────────
+
+    @Test fun `formatSolarTime returns valid HH MM SS`() {
+        val ms = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            clear(); set(2026, 2, 20, 12, 0, 0) // March = 2
+        }.timeInMillis
+        val result = formatSolarTime(ms, 0.0)
+        // Must match HH:MM:SS with valid ranges.
+        val parts = result.split(":")
+        assertThat(parts).hasSize(3)
+        val h = parts[0].toInt()
+        val m = parts[1].toInt()
+        val s = parts[2].toInt()
+        assertThat(h).isIn(0..23)
+        assertThat(m).isIn(0..59)
+        assertThat(s).isIn(0..59)
+        // At Greenwich noon (EoT ~ -7.5 min on Mar 20), solar time ≈ 11:52:30.
+        assertThat(h).isEqualTo(11)
+        assertThat(m).isIn(48..56) // ±4 min tolerance
     }
 }

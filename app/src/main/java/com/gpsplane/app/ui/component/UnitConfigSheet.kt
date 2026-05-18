@@ -26,6 +26,7 @@ import com.gpsplane.app.ui.format.AltUnit
 import com.gpsplane.app.ui.format.CoordFormat
 import com.gpsplane.app.ui.format.HeadingRef
 import com.gpsplane.app.ui.format.SpeedUnit
+import com.gpsplane.app.ui.format.SunTimeRef
 import com.gpsplane.app.ui.format.UnitConfig
 import com.gpsplane.app.ui.format.VSpeedUnit
 
@@ -66,6 +67,8 @@ internal fun UnitConfigSheet(
                 { onConfigChange(config.copy(coord1 = it)) }, { onConfigChange(config.copy(coord2 = it)) })
             SingleUnitRow("Heading Reference", HeadingRef.entries, config.headingRef, { it.label },
                 { onConfigChange(config.copy(headingRef = it)) })
+            SingleUnitRow("Sunrise/Sunset Time", SunTimeRef.entries, config.sunTimeRef, { it.label },
+                { onConfigChange(config.copy(sunTimeRef = it)) })
 
             Spacer(Modifier.height(16.dp))
             HorizontalDivider()

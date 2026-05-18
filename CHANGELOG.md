@@ -6,6 +6,22 @@ All notable changes to Stratos will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- Local apparent solar time on the dashboard bottom bar, displayed to
+  the second via the Meeus algorithm (Astronomical Algorithms, Ch. 25/27).
+  Equation-of-time accuracy: ±0.07 seconds.
+- `AstroTime` helper: Julian Day, Julian Century, equation of time, and
+  local apparent solar time (11 tests).
+
+### Fixed
+- SunPositionNoaa now uses the observer's local solar date (derived from
+  GPS UTC time and longitude) instead of the UTC calendar date, fixing a
+  24-hour sunrise error for eastern longitudes (Tokyo, Sydney).
+- Polar day / polar night sunrise display no longer stuck on `--` due to
+  `MutableStateFlow` deduplication (polarCase in equals).
+
 ## [0.2.0-beta.1] — 2026-05-10
 
 Feature-complete beta for v0.2.0. Lands the last three items on the
