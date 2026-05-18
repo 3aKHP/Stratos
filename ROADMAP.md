@@ -21,6 +21,7 @@
 
 ### Environment / 环境
 - [x] **Sunrise/Sunset / 日出日落** — 基于 GPS 坐标的天文算法，无网计算当前位置日出日落时间 *(beta.1)*
+- [x] **Solar Time / 视太阳时** — Meeus 高精算法均时差（±0.07 sec），底部条 LAST 显示到秒，日出日落可切换 UTC/Solar/Local 时制 *(beta.2)*
 
 ### Flight Tracking / 飞行记录
 - [x] Foreground service with persistent notification（前台服务防 GPS 休眠） *(alpha.4)*

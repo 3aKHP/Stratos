@@ -8,10 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0-beta.2] — 2026-05-18
+
 ### Added
-- Local apparent solar time on the dashboard bottom bar, displayed to
-  the second via the Meeus algorithm (Astronomical Algorithms, Ch. 25/27).
+- **High-precision solar time on dashboard.** The bottom bar now shows
+  local apparent solar time (`Solar HH:MM:SS`) computed from GPS
+  coordinates via the Meeus algorithm (Astronomical Algorithms, Ch. 25/27).
   Equation-of-time accuracy: ±0.07 seconds.
+- **Sunrise/sunset time reference setting.** Users can choose whether
+  the top-bar sunrise and sunset are displayed in UTC, Solar, or Local
+  time via a new setting row.
 - `AstroTime` helper: Julian Day, Julian Century, equation of time, and
   local apparent solar time (11 tests).
 
@@ -20,7 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   GPS UTC time and longitude) instead of the UTC calendar date, fixing a
   24-hour sunrise error for eastern longitudes (Tokyo, Sydney).
 - Polar day / polar night sunrise display no longer stuck on `--` due to
-  `MutableStateFlow` deduplication (polarCase in equals).
+  `MutableStateFlow` deduplication (polarCase now participates in
+  `equals()`).
 
 ## [0.2.0-beta.1] — 2026-05-10
 
