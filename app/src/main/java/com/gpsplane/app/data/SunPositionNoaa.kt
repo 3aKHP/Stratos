@@ -14,18 +14,22 @@ import kotlin.math.tan
  * polar night (sun never rises) or polar day (sun never sets) at the
  * given latitude and date.
  */
-data class SunTimes(val sunriseUtcMs: Long?, val sunsetUtcMs: Long?) {
-    val isPolarDay: Boolean get() = sunriseUtcMs == null && sunsetUtcMs == null && polarCase == PolarCase.DAY
-    val isPolarNight: Boolean get() = sunriseUtcMs == null && sunsetUtcMs == null && polarCase == PolarCase.NIGHT
+data class SunTimes(
+    val sunriseUtcMs: Long?,
+    val sunsetUtcMs: Long?,
+    internal val polarCase: PolarCase = PolarCase.NORMAL,
+) {
+    val isPolarDay: Boolean get() = polarCase == PolarCase.DAY
+    val isPolarNight: Boolean get() = polarCase == PolarCase.NIGHT
 
-    internal var polarCase: PolarCase = PolarCase.NORMAL
-
-    internal enum class PolarCase { NORMAL, DAY, NIGHT }
+    // Must be public (not internal) because it appears in the primary
+    // constructor of the public data class SunTimes.
+    enum class PolarCase { NORMAL, DAY, NIGHT }
 
     companion object {
-        val UNKNOWN = SunTimes(null, null).apply { polarCase = PolarCase.NORMAL }
-        internal fun polarDay() = SunTimes(null, null).apply { polarCase = PolarCase.DAY }
-        internal fun polarNight() = SunTimes(null, null).apply { polarCase = PolarCase.NIGHT }
+        val UNKNOWN = SunTimes(null, null)
+        internal fun polarDay() = SunTimes(null, null, PolarCase.DAY)
+        internal fun polarNight() = SunTimes(null, null, PolarCase.NIGHT)
     }
 }
 
@@ -45,16 +49,28 @@ object SunPositionNoaa {
     private const val ZENITH_DEG = 90.833
 
     fun compute(latDeg: Double, lonDeg: Double, referenceUtcMs: Long): SunTimes {
-        // Reduce the reference instant to the UTC calendar date.
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            timeInMillis = referenceUtcMs
+        val lngHour = lonDeg / 15.0
+
+        // Determine the observer's local solar date — purely geometric,
+        // derived from GPS UTC time and longitude. No phone timezone.
+        val localMs = referenceUtcMs + (lngHour * 3_600_000.0).toLong()
+        val localCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            timeInMillis = localMs
         }
-        val year = cal.get(Calendar.YEAR)
-        val month = cal.get(Calendar.MONTH) + 1
-        val day = cal.get(Calendar.DAY_OF_MONTH)
-        val startOfDayMs = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+        val year = localCal.get(Calendar.YEAR)
+        val month = localCal.get(Calendar.MONTH) + 1
+        val day = localCal.get(Calendar.DAY_OF_MONTH)
+
+        // UTC midnight of the local calendar date — the anchor for event placement.
+        val utcMidnightMs = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
             clear(); set(year, month - 1, day, 0, 0, 0)
         }.timeInMillis
+
+        // The local solar date expressed as a UTC interval.
+        // An event belongs to this local date iff its UTC timestamp falls
+        // within [localStartMs, localEndMs).
+        val localStartMs = utcMidnightMs - (lngHour * 3_600_000.0).toLong()
+        val localEndMs = localStartMs + 86_400_000L
 
         val sunriseEvent = computeEvent(latDeg, lonDeg, year, month, day, rising = true)
         val sunsetEvent = computeEvent(latDeg, lonDeg, year, month, day, rising = false)
@@ -67,20 +83,33 @@ object SunPositionNoaa {
                     SunTimes.polarNight()
 
             else -> {
-                val sunriseMs = (sunriseEvent as? EventResult.Ok)?.let {
-                    startOfDayMs + (it.utcHours * 3_600_000.0).toLong()
+                var sunriseMs = (sunriseEvent as? EventResult.Ok)?.let {
+                    val candidate = utcMidnightMs + (it.utcHours * 3_600_000.0).toLong()
+                    placeInLocalDay(candidate, localStartMs, localEndMs)
                 }
-                // Sunset can fall on the NEXT UTC day when the observer's
-                // local day straddles the UTC boundary (e.g. US East Coast,
-                // where sunset in UTC is around 00:30 the following day).
-                // Detect that by checking whether the raw hour is earlier
-                // than sunrise's, and advance to the next UTC midnight.
-                val sunsetMs = (sunsetEvent as? EventResult.Ok)?.let {
-                    val base = startOfDayMs + (it.utcHours * 3_600_000.0).toLong()
-                    if (sunriseMs != null && base < sunriseMs) base + 86_400_000L else base
+                var sunsetMs = (sunsetEvent as? EventResult.Ok)?.let {
+                    val candidate = utcMidnightMs + (it.utcHours * 3_600_000.0).toLong()
+                    placeInLocalDay(candidate, localStartMs, localEndMs)
+                }
+                // Safety net: when sunrise and sunset land on different
+                // UTC days the pair must still be ordered correctly.
+                if (sunriseMs != null && sunsetMs != null && sunsetMs <= sunriseMs) {
+                    sunsetMs += 86_400_000L
                 }
                 SunTimes(sunriseMs, sunsetMs)
             }
+        }
+    }
+
+    /**
+     * Place a candidate UTC timestamp inside the local-date span
+     * [spanStartMs, spanEndMs), shifting by ±24 h if necessary.
+     */
+    private fun placeInLocalDay(candidateMs: Long, spanStartMs: Long, spanEndMs: Long): Long {
+        return when {
+            candidateMs < spanStartMs -> candidateMs + 86_400_000L
+            candidateMs >= spanEndMs -> candidateMs - 86_400_000L
+            else -> candidateMs
         }
     }
 
@@ -152,8 +181,9 @@ object SunPositionNoaa {
         l = wrapDeg(l)
         val sinDec = 0.39782 * sin(Math.toRadians(l))
         val decDeg = Math.toDegrees(Math.asin(sinDec))
-        // Sun altitude at local solar noon = 90 - |lat - dec|.
-        return (90.0 - kotlin.math.abs(latDeg - decDeg)) > 0.0
+        // Solar noon altitude with the same civil-refraction correction
+        // as the main zenith angle: visible when altitude > 90° - ZENITH_DEG.
+        return (90.0 - kotlin.math.abs(latDeg - decDeg)) > (90.0 - ZENITH_DEG)
     }
 
     private fun wrapDeg(v: Double): Double = ((v % 360.0) + 360.0) % 360.0

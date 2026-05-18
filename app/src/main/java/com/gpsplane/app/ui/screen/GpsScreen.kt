@@ -88,6 +88,7 @@ fun GpsScreen(
             gpsData = gpsData,
             flightState = FlightTimer.display(flightSnap, nowMs),
             sunTimes = sunTimes,
+            sunTimeRef = unitConfig.sunTimeRef,
             onSettingsClick = { showConfig = true },
         )
 

@@ -101,8 +101,8 @@ docs/
 - **`GpsScreen.kt` 拆分**：已完成（split into ui/format/ + ui/component/）
 - **`SunPositionNoaa` / `SunTimes` 模块重构**（推迟到下个子版本一并处理）：
   - 极昼/极夜下 `SunTimes(null, null)` 与 `UNKNOWN` `equals` 相同，`MutableStateFlow` 去重导致极昼永远渲染为 `--`（B1）
-  - `compute` 按 `referenceUtcMs` 的 UTC 日期取 N，东经大经度会跳过"当地今天的下一个日出日落"（B2；东京/悉尼场景可复现）
-  - `sunIsUpAtNoon` 临界角用 `0°` 而非 `-0.833°`，极圈附近约 50 km 纬度误判（S5）
+  - ~~`compute` 按 `referenceUtcMs` 的 UTC 日期取 N~~ → 已修复，改用当地视太阳日
+  - ~~`sunIsUpAtNoon` 临界角~~ → 已修复为 -0.833°
   - SunPositionNoaaTest 缺东经用例（S1）
   - 每个 GPS sample 都重算，应缓存 `(当地日期, ~1° 网格)`（S3）
 

@@ -26,6 +26,10 @@ internal enum class HeadingRef(val label: String) {
     MAG("MAG"), TRUE("TRUE")
 }
 
+internal enum class SunTimeRef(val label: String) {
+    UTC("UTC"), SOLAR("Solar"), LOCAL("Local")
+}
+
 internal data class UnitConfig(
     val speed1: SpeedUnit = SpeedUnit.KNOTS,
     val speed2: SpeedUnit = SpeedUnit.KMH,
@@ -36,4 +40,5 @@ internal data class UnitConfig(
     val coord1: CoordFormat = CoordFormat.DECIMAL,
     val coord2: CoordFormat = CoordFormat.DMS,
     val headingRef: HeadingRef = HeadingRef.MAG,
+    val sunTimeRef: SunTimeRef = SunTimeRef.UTC,
 )

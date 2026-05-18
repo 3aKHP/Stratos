@@ -21,6 +21,7 @@ import com.gpsplane.app.data.FlightPhase
 import com.gpsplane.app.data.FlightTimerState
 import com.gpsplane.app.data.SunTimes
 import com.gpsplane.app.data.model.GpsData
+import com.gpsplane.app.ui.format.SunTimeRef
 import com.gpsplane.app.ui.format.formatFlightTime
 import com.gpsplane.app.ui.format.formatSunTimes
 
@@ -34,6 +35,7 @@ internal fun TopBar(
     gpsData: GpsData,
     flightState: FlightTimerState,
     sunTimes: SunTimes,
+    sunTimeRef: SunTimeRef,
     onSettingsClick: () -> Unit,
 ) {
     Row(
@@ -69,7 +71,7 @@ internal fun TopBar(
                 textAlign = TextAlign.End,
             )
             Text(
-                formatSunTimes(sunTimes),
+                formatSunTimes(sunTimes, sunTimeRef, gpsData.longitude),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontFamily = FontFamily.Monospace),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
