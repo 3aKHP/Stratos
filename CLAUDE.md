@@ -25,29 +25,65 @@ Stratos 是一款民航窗座场景的 GPS 飞行仪表 Android 应用。本文�
 三条硬规则：
 
 - **需明确指令才 Commit**。对话里讨论到"要提交"不算指令，必须出现"请提交 / 请 commit / 请开 PR"这类明确祈使句
-- **一般不在 main 直接工作**，但**允许例外**：大 PR merge 完后的 chore/docs 级小修补（补一个版本号遗漏、改 typo）可以直接在 main 上。feat/fix/refactor 级一律走分支
+- **不在 main 上直接开发**。所有 feat/fix/refactor/chore/docs 分支都从 `dev` 切、往 `dev` 合；`main` 只接收 release PR 合并，不接收日常提交
 - **不主动 push**。即使刚 commit 完，也等用户说"请推"
+
+## 分支模型（简化版 GitFlow）
+
+仓库维护两条常驻分支：
+
+| 分支 | 角色 |
+|---|---|
+| `main` | 生产就绪。只有 release PR 和紧急 hotfix 能进，每个 merge 都对应一个 `v*` tag |
+| `dev` | 集成分支。所有 feature 分支从这切、往这合；日常 CI 落点 |
+
+```
+       v0.2.0 tag
+          │
+   ───────●────────────────  main
+       ╲   ↑      ╱
+        ╲ release ╱  PR (merge commit)
+         ╲ PR   ╱
+   ────────●───●────────────  dev
+          ╱       ╲   ╱
+   feat/...     fix/...
+```
+
+feature 分支一律 `base = dev`；release PR 是 `base = main, head = dev`，merge 方式用 **merge commit**，打 tag 在 release PR 合入 `main` 之后。
 
 ## 分支命名
 
-`<type>/v<version>-<topic>`，type 用 Conventional Commits 的类型。例：
+`<type>/v<version>-<topic>`，type 用 Conventional Commits 的类型。base 永远是 `dev`。例：
 - `chore/v0.1.1-housekeeping`
 - `feat/v0.2.0-alpha.1-sensors`
+- `fix/v0.3.0-corridor-coslat`
 
 ## 单次迭代循环
 
-一个大修改（从"你决定要做 X"到"main 合进 X"）的标准循环：
+一个大修改（从"你决定要做 X"到"dev 合进 X"）的标准循环：
 
 1. **对齐计划**：动手前用 1-2 段话描述打算做什么、拆成几个 commit、可能的风险。等用户点头
-2. **拉分支**：按上面的命名约定
+2. **拉分支**：从最新的 `dev` 切（`git checkout dev && git pull && git checkout -b <type>/v<version>-<topic>`）
 3. **动手**：按 commit 主题分批提交，每个中间 commit 都能独立编译（bisect-friendly）
 4. **本地验证**：`./gradlew test assembleDebug` 全绿
-5. **推分支 + 开 PR**：PR body 包含 Summary / Test plan / 未尽事宜三段
+5. **推分支 + 开 PR**：PR `base = dev`，body 包含 Summary / Test plan / 未尽事宜三段
 6. **独立 CR**：spawn 子代理做独立 review（见下文）
 7. **应对 CR**：blocking 和 should-fix 处理掉，推到同分支；nits 酌情
 8. **真机验证**：涉及 UI / 权限 / sensor / 存储路径 / lifecycle 的改动必须在真机过一遍
 9. **人类 merge**：Claude 不做 merge，等用户确认
-10. **本地清扫**：`git checkout main && git pull && git branch -d <branch> && git remote prune origin`
+10. **本地清扫**：`git checkout dev && git pull && git branch -d <branch> && git remote prune origin`
+
+## 发版循环
+
+一个版本发版（从"dev 攒够了"到"main 打 tag"）：
+
+1. **确认 dev 干净且 CI 绿**：所有 feature 已合入 `dev`
+2. **拉 release 分支或直接在 dev 上准备发版提交**：版本号、CHANGELOG、STATUS/ROADMAP 同步（详见 `AGENTS.md` 版本同步清单）
+3. **开 release PR**：`base = main, head = dev`，标题 `chore(release): bump to vX.Y.Z`
+4. **人类 merge**（merge commit 方式）
+5. **打 tag**：在 `main` 的 merge commit 上 `git tag vX.Y.Z`，触发 `release.yml`
+6. **回同步**：把 `main` 的 merge commit 合回 `dev`（`git checkout dev && git merge main && git push`），保持 dev/main 不分叉
+7. **本地清扫**：`git checkout dev && git pull`
 
 ## Commit 规范
 
