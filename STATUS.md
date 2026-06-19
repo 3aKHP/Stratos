@@ -6,6 +6,17 @@
 
 ---
 
+## 分支模型
+
+简化版 GitFlow（自 v0.2.0 起引入）：
+
+- `main` — 生产就绪，只接收 release PR 合并（merge commit），每次合并对应一个 `v*` tag。
+- `dev` — 集成分支，所有 feature 分支 `base = dev`，日常 CI 落点。
+
+feature 分支从 `dev` 切、往 `dev` 合；发版时开 `dev → main` 的 release PR，merge 后在 `main` 打 tag，再把 `main` 回合回 `dev`。完整循环见 [`CLAUDE.md`](CLAUDE.md)。
+
+---
+
 ## 项目概况
 
 **Stratos** 是一款面向民航客机窗座飞友的 GPS 飞行仪表 Android 应用。把手机变成驾驶舱风格的飞行显示器，展示实时速度/高度/航向/垂直速度/GNSS 卫星信息/姿态/加速度/载荷因子/转弯率/气压计读数，并提供基于 osmdroid + ArcGIS 的离线移动地图。

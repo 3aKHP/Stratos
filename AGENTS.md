@@ -17,16 +17,24 @@
 - 需要提交时，使用 Conventional Commits。
 - 做 PR review 时，只看最新 head 的代码、checks 和日志，不要依赖旧结论。
 
+## 分支模型
+
+简化版 GitFlow：维护两条常驻分支。
+
+- `main` — 生产就绪，只接收 release PR 合并（merge commit），每次合并对应一个 `v*` tag。
+- `dev` — 集成分支，所有 feature 分支 `base = dev`，日常 CI 落点。
+
+feature 分支从 `dev` 切、往 `dev` 合；发版时开 `dev → main` 的 release PR，merge 后在 `main` 打 tag，再把 `main` 回合回 `dev`。细则见 [`CLAUDE.md`](CLAUDE.md)。
+
 ## 版本与文档同步
 
 - 每次版本号变更时，同步更新：
-  - `app/build.gradle.kts`
-  - `app/src/main/java/com/gpsplane/app/data/TilePreloader.kt`
-  - `app/src/main/java/com/gpsplane/app/ui/screen/MapScreen.kt`
-  - `app/src/main/java/com/gpsplane/app/ui/screen/DownloadScreen.kt`
+  - `app/build.gradle.kts`（`versionCode` + `versionName`）
   - `CHANGELOG.md`
+  - `STATUS.md` / `ROADMAP.md` 版本状态行
 - 用户可见行为变化时，顺手更新 `README.md` 和相关 docs。
 - 数据流或架构变化时，优先检查 `docs/developer/architecture.md` 是否过期。
+- 注意：`BuildConfig.VERSION_NAME` 在 v0.2.0-alpha.4 后已统一作为 User-Agent 来源，`TilePreloader.kt` / `MapScreen.kt` / `DownloadScreen.kt` 三处自动跟随 `versionName`，发版时**无需**手动改这三个 Kotlin 文件。
 
 ## 代码规范与架构
 
