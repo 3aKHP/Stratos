@@ -46,14 +46,23 @@ class MainActivity : ComponentActivity() {
     // permission grant is an Activity-level concern (launcher + result
     // callback). Exposed to Compose via a MutableState so the banner
     // recomposes when the grant flips. Refreshed in onResume to catch
-    // the user toggling the permission in system Settings.
-    private val notificationsGranted = mutableStateOf(true)
+    // the user toggling the permission in system Settings. The initial
+    // value is a placeholder — onCreate always refreshes before first
+    // Compose read.
+    private val notificationsGranted = mutableStateOf(false)
     private val bannerDismissed = mutableStateOf(false)
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            // Snapshot the pre-grant location state so we only recreate
+            // (and start the service) when location was actually just
+            // granted. A notification-only grant (e.g. the banner's
+            // "Grant" button, which launches with just POST_NOTIFICATIONS)
+            // must NOT recreate — otherwise selectedTab resets and the
+            // user is bounced off their current screen.
+            val hadLocation = hasLocationPermission
             refreshPermissionState(results)
-            if (hasLocationPermission) {
+            if (!hadLocation && hasLocationPermission) {
                 GpsTrackingService.start(this)
                 recreate()
             }
@@ -69,8 +78,9 @@ class MainActivity : ComponentActivity() {
         filesDir.resolve("osmdroid-v2").takeIf { it.exists() }?.deleteRecursively()
 
         // Restore the user's "don't show the notification banner again"
-        // choice. Kept in SharedPreferences so it survives reinstall of
-        // state across process death / cache clearing within an install.
+        // choice. Kept in the Activity's private SharedPreferences so it
+        // survives process death and config changes within an install
+        // (clearing app data or uninstalling resets it — intended).
         bannerDismissed.value = getPreferences(Context.MODE_PRIVATE)
             .getBoolean(KEY_BANNER_DISMISSED, false)
 
@@ -213,7 +223,7 @@ fun MainScreen(
     onGrantNotifications: () -> Unit,
     onDismissNotificationBanner: () -> Unit,
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
 
     val service by rememberBoundService()
 

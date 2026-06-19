@@ -113,31 +113,38 @@ class TilePreloaderTest {
     @Test
     fun `corridorTileRadius — equator matches legacy approximation`() {
         // At the equator cos(lat)=1, so the new formula must match the old
-        // `km / (40075 / 2^zoom)` exactly.
-        val radius = TilePreloader.corridorTileRadius(km = 50.0, zoom = 8, latDeg = 0.0)
-        val legacy = maxOf(1, (50.0 / (40075.0 / (1 shl 8))).toInt())
+        // `km / (40075 / 2^zoom)` exactly. Pick km so the floor is ≥2,
+        // otherwise both formulas trivially clamp to 1 and the test
+        // can't tell them apart.
+        val km = 400.0
+        val zoom = 8
+        val radius = TilePreloader.corridorTileRadius(km, zoom, latDeg = 0.0)
+        val legacy = maxOf(1, (km / (40075.0 / (1 shl zoom))).toInt())
         assertThat(radius).isEqualTo(legacy)
+        // Sanity: the value is actually ≥2 so the assertion has teeth.
+        assertThat(radius).isAtLeast(2)
     }
 
     @Test
     fun `corridorTileRadius — higher latitude yields more tiles`() {
-        // cos(60°)=0.5, so tiles are half as wide east-west → a fixed km
-        // corridor needs ~2× the tiles compared to the equator.
-        val equator = TilePreloader.corridorTileRadius(km = 50.0, zoom = 8, latDeg = 0.0)
-        val arctic = TilePreloader.corridorTileRadius(km = 50.0, zoom = 8, latDeg = 60.0)
-        assertThat(arctic).isAtLeast(equator)
-        // Roughly double, but allow rounding slack.
-        assertThat(arctic).isAtMost(equator * 2 + 1)
+        // cos(60°)=0.5 → tiles half as wide east-west → a fixed km
+        // corridor needs ~2× the tiles. km=500/z8: equator=3, 60°N=6.
+        val equator = TilePreloader.corridorTileRadius(km = 500.0, zoom = 8, latDeg = 0.0)
+        val arctic = TilePreloader.corridorTileRadius(km = 500.0, zoom = 8, latDeg = 60.0)
+        assertThat(equator).isEqualTo(3)
+        assertThat(arctic).isEqualTo(6)
+        assertThat(arctic).isEqualTo(equator * 2)
     }
 
     @Test
     fun `corridorTileRadius — mid-latitude between equator and polar`() {
         // cos(45°)≈0.707, so 45° radius sits between equator and 60°.
-        val equator = TilePreloader.corridorTileRadius(km = 50.0, zoom = 8, latDeg = 0.0)
-        val mid = TilePreloader.corridorTileRadius(km = 50.0, zoom = 8, latDeg = 45.0)
-        val polar = TilePreloader.corridorTileRadius(km = 50.0, zoom = 8, latDeg = 60.0)
-        assertThat(mid).isAtLeast(equator)
-        assertThat(mid).isAtMost(polar)
+        // km=500/z8: equator=3, 45°N=4, 60°N=6.
+        val equator = TilePreloader.corridorTileRadius(km = 500.0, zoom = 8, latDeg = 0.0)
+        val mid = TilePreloader.corridorTileRadius(km = 500.0, zoom = 8, latDeg = 45.0)
+        val polar = TilePreloader.corridorTileRadius(km = 500.0, zoom = 8, latDeg = 60.0)
+        assertThat(mid).isGreaterThan(equator)
+        assertThat(mid).isLessThan(polar)
     }
 
     @Test
@@ -149,9 +156,13 @@ class TilePreloaderTest {
 
     @Test
     fun `corridorTileRadius — does not blow up near the pole`() {
-        // cos(89°) is tiny but positive; must not divide by zero.
-        val radius = TilePreloader.corridorTileRadius(km = 50.0, zoom = 8, latDeg = 89.0)
-        assertThat(radius).isAtLeast(1)
+        // cos(89°)≈0.0175 is tiny but positive; must not divide by zero.
+        // With the fix this yields a large radius (~183 for 500 km); with
+        // the old equatorial formula it would be 3 — so the gap is real.
+        val equator = TilePreloader.corridorTileRadius(km = 500.0, zoom = 8, latDeg = 0.0)
+        val nearPole = TilePreloader.corridorTileRadius(km = 500.0, zoom = 8, latDeg = 89.0)
+        assertThat(nearPole).isAtLeast(1)
+        assertThat(nearPole).isGreaterThan(equator)
     }
 
     @Test
