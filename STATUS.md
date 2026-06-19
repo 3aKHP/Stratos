@@ -33,8 +33,8 @@ feature 分支从 `dev` 切、往 `dev` 合；发版时开 `dev → main` 的 re
 ### 版本状态
 
 - **v0.1.0** — 已打 tag、已发 Release
-- **v0.1.1 / v0.1.2 / v0.2.0-alpha.1 / alpha.2 / alpha.3 / alpha.4 / beta.1** — 已打 tag
-- **v0.2.0-beta.2** — 当前版本（高精太阳时 + sunrise/sunset 时制 + B1/B2/S5 修复）
+- **v0.1.1 / v0.1.2 / v0.2.0-alpha.1 / alpha.2 / alpha.3 / alpha.4 / beta.1 / beta.2** — 已打 tag
+- **v0.2.0** — 当前版本（Cockpit & Sensors 正式版：收尾 cos(lat) 走廊修正、architecture 刷新、notification banner）
 
 ### 技术栈
 
@@ -98,12 +98,12 @@ docs/
 - **磁偏角算法选型**（v0.2.0-alpha.2）：已完成（WMM via GeomagneticField）
 - **ZULU 时钟 + 飞行时长状态机**（v0.2.0-alpha.2）：已完成
 - **前台服务 + GPX 航迹记录**（v0.2.0-alpha.4）：已完成
-- **TilePreloader 走廊宽度纬度修正**：当前 `corridorTiles` 忽略 `cos(lat)`，高纬度走廊偏窄。独立 PR
+- **TilePreloader 走廊宽度纬度修正**：已完成（v0.2.0 正式版，`corridorTileRadius` 按 `cos(lat)`）
 - **Dashboard 无气压计时是否隐藏 BaroRow**：当前保持显示 "no baro"
 - **`GpsScreen.kt` 拆分**：已完成（split into ui/format/ + ui/component/）
-- **`SunPositionNoaa` / `SunTimes` / `AstroTime` 模块**：B1/B2/S5/S1 已在 v0.2.0-beta.2 修复，新增高精均时差。仅 S3 缓存未完成
+- **`SunPositionNoaa` / `SunTimes` / `AstroTime` 模块**：B1/B2/S5/S1 已在 v0.2.0-beta.2 修复，新增高精均时差。S3 通知 banner 已在 v0.2.0 正式版补齐
 
 ### 观感 / 性能
 
 - `combine(gps, att, env)` 当前 ~200 Hz 触发 Compose 重组。未来加 `conflate()` 或 `sample(16.ms)` 可省电
-- `architecture.md` 未反映 v0.1.2 之后的 Repository 拆分
+- ~~`architecture.md` 未反映 v0.1.2 之后的 Repository 拆分~~ — 已在 v0.2.0 正式版刷新
