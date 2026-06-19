@@ -132,8 +132,13 @@ class TilePreloader(
         routeTiles: Set<Pair<Int, Int>>, corridorKm: Double, zoom: Int
     ): Set<Long> {
         val result = mutableSetOf<Long>()
-        val radius = corridorTiles(corridorKm, zoom)
         for ((cx, cy) in routeTiles) {
+            // Per-tile latitude so the corridor stays a constant physical
+            // width along the route — without cos(lat), tiles at high
+            // latitude cover a smaller east-west distance than at the
+            // equator, so a fixed tile count would under-cover there.
+            val latDeg = tileYToLatitude(cy, zoom)
+            val radius = corridorTileRadius(corridorKm, zoom, latDeg)
             for (dx in -radius..radius) {
                 for (dy in -radius..radius) {
                     val x = cx + dx
@@ -192,17 +197,39 @@ class TilePreloader(
         return Pair(x, y)
     }
 
-    private fun corridorTiles(km: Double, zoom: Int): Int {
-        // Approximate: 1 tile at equator ≈ (40075 / 2^zoom) km
-        val tileWidthKm = 40075.0 / (1 shl zoom)
-        return maxOf(1, (km / tileWidthKm).toInt())
-    }
-
     companion object {
         private const val MAX_CONCURRENT = 8
         private const val EARTH_RADIUS_KM = 6371.0
+        private const val EARTH_CIRCUMFERENCE_KM = 40075.0
         private const val PROGRESS_REPORT_INTERVAL_MS = 100L
         private val USER_AGENT = "Stratos/${BuildConfig.VERSION_NAME}"
+
+        /**
+         * Corridor radius in tiles for a given physical width [km] at
+         * latitude [latDeg] and [zoom]. Divides the per-tile east-west
+         * span — which shrinks as cos(lat) away from the equator — into
+         * the requested corridor, so the physical width stays roughly
+         * constant along a route that crosses latitudes.
+         *
+         * At the equator this matches the old `km / (40075/2^zoom)`
+         * approximation; at 60° N the same km yields ~2× the tile count,
+         * matching the actual narrower tiles there.
+         */
+        fun corridorTileRadius(km: Double, zoom: Int, latDeg: Double): Int {
+            val cosLat = cos(Math.toRadians(latDeg)).coerceAtLeast(1e-6)
+            val tileWidthKm = (EARTH_CIRCUMFERENCE_KM / (1 shl zoom)) * cosLat
+            return maxOf(1, (km / tileWidthKm).toInt())
+        }
+
+        /**
+         * Web Mercator inverse: tile Y → latitude in degrees. Used to
+         * recover the latitude of a route tile for [corridorTileRadius].
+         */
+        fun tileYToLatitude(y: Int, zoom: Int): Double {
+            val n = 1 shl zoom
+            val ratio = (1.0 - 2.0 * y.toDouble() / n).coerceIn(-1.0, 1.0)
+            return Math.toDegrees(Math.atan(Math.sinh(Math.PI * ratio)))
+        }
 
         /** Great-circle distance in km (Haversine). */
         fun greatCircleDistance(a: GeoPoint, b: GeoPoint): Double {

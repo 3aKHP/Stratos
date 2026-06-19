@@ -1,6 +1,7 @@
 package com.gpsplane.app
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -30,6 +31,7 @@ import com.gpsplane.app.data.model.EnvironmentData
 import com.gpsplane.app.data.model.GpsData
 import com.gpsplane.app.service.GpsTrackingService
 import com.gpsplane.app.service.rememberBoundService
+import com.gpsplane.app.ui.component.NotificationBanner
 import com.gpsplane.app.ui.screen.DownloadScreen
 import com.gpsplane.app.ui.screen.GpsScreen
 import com.gpsplane.app.ui.screen.MapScreen
@@ -40,15 +42,27 @@ class MainActivity : ComponentActivity() {
     private var hasLocationPermission = false
     private var immersiveActive = false
 
+    // Notification-permission state lives on the Activity because the
+    // permission grant is an Activity-level concern (launcher + result
+    // callback). Exposed to Compose via a MutableState so the banner
+    // recomposes when the grant flips. Refreshed in onResume to catch
+    // the user toggling the permission in system Settings. The initial
+    // value is a placeholder — onCreate always refreshes before first
+    // Compose read.
+    private val notificationsGranted = mutableStateOf(false)
+    private val bannerDismissed = mutableStateOf(false)
+
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
-            hasLocationPermission = results.entries
-                .filter {
-                    it.key == Manifest.permission.ACCESS_FINE_LOCATION ||
-                    it.key == Manifest.permission.ACCESS_COARSE_LOCATION
-                }
-                .all { it.value }
-            if (hasLocationPermission) {
+            // Snapshot the pre-grant location state so we only recreate
+            // (and start the service) when location was actually just
+            // granted. A notification-only grant (e.g. the banner's
+            // "Grant" button, which launches with just POST_NOTIFICATIONS)
+            // must NOT recreate — otherwise selectedTab resets and the
+            // user is bounced off their current screen.
+            val hadLocation = hasLocationPermission
+            refreshPermissionState(results)
+            if (!hadLocation && hasLocationPermission) {
                 GpsTrackingService.start(this)
                 recreate()
             }
@@ -63,12 +77,14 @@ class MainActivity : ComponentActivity() {
         // old path are unreachable, waste space, and count against Auto Backup.
         filesDir.resolve("osmdroid-v2").takeIf { it.exists() }?.deleteRecursively()
 
-        hasLocationPermission = listOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ).all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
+        // Restore the user's "don't show the notification banner again"
+        // choice. Kept in the Activity's private SharedPreferences so it
+        // survives process death and config changes within an install
+        // (clearing app data or uninstalling resets it — intended).
+        bannerDismissed.value = getPreferences(Context.MODE_PRIVATE)
+            .getBoolean(KEY_BANNER_DISMISSED, false)
+
+        refreshPermissionState(null)
 
         if (hasLocationPermission) {
             GpsTrackingService.start(this)
@@ -86,14 +102,35 @@ class MainActivity : ComponentActivity() {
                     immersiveActive = immersive
                     applyImmersive(immersive)
                 }
+                // Snapshot the Activity-level permission state so Compose
+                // recomposes when notificationsGranted.value changes.
+                val notifGranted by notificationsGranted
+                val bannerGone by bannerDismissed
                 MainScreen(
                     hasPermission = hasLocationPermission,
                     immersive = immersive,
                     onImmersiveChange = { immersive = it },
-                    onRequestPermission = { requestPermissions() }
+                    onRequestPermission = { requestPermissions() },
+                    showNotificationBanner = hasLocationPermission &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        !notifGranted && !bannerGone,
+                    onGrantNotifications = { requestNotificationPermission() },
+                    onDismissNotificationBanner = {
+                        bannerDismissed.value = true
+                        getPreferences(Context.MODE_PRIVATE)
+                            .edit().putBoolean(KEY_BANNER_DISMISSED, true).apply()
+                    },
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The user may have flipped the notification permission in system
+        // Settings while we were paused; re-read the ground truth so the
+        // banner reflects reality (and clears once they grant it).
+        refreshPermissionState(null)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -129,14 +166,50 @@ class MainActivity : ComponentActivity() {
         permissionLauncher.launch(perms)
     }
 
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+    }
+
     private fun maybeRequestNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val already = ContextCompat.checkSelfPermission(
+        if (!isNotificationGranted()) requestNotificationPermission()
+    }
+
+    private fun isNotificationGranted(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(
             this, Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED
-        if (!already) {
-            permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+    }
+
+    /**
+     * Re-derive the permission flags. [grantResults] is non-null when
+     * coming from the permission launcher callback (carries the fresh
+     * decision); null means read the system ground truth (onCreate /
+     * onResume / focus regain).
+     */
+    private fun refreshPermissionState(grantResults: Map<String, Boolean>?) {
+        val locGranted = grantResults?.let { results ->
+            results.entries
+                .filter {
+                    it.key == Manifest.permission.ACCESS_FINE_LOCATION ||
+                    it.key == Manifest.permission.ACCESS_COARSE_LOCATION
+                }
+                .all { it.value }
+        } ?: listOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ).all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
+        hasLocationPermission = locGranted
+        notificationsGranted.value = grantResults?.get(Manifest.permission.POST_NOTIFICATIONS)
+            ?: isNotificationGranted()
+    }
+
+    companion object {
+        private const val KEY_BANNER_DISMISSED = "notification_banner_dismissed"
     }
 }
 
@@ -146,8 +219,11 @@ fun MainScreen(
     immersive: Boolean,
     onImmersiveChange: (Boolean) -> Unit,
     onRequestPermission: () -> Unit,
+    showNotificationBanner: Boolean,
+    onGrantNotifications: () -> Unit,
+    onDismissNotificationBanner: () -> Unit,
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
 
     val service by rememberBoundService()
 
@@ -188,18 +264,26 @@ fun MainScreen(
             if (!hasPermission) {
                 PermissionPrompt(onRequestPermission)
             } else {
-                when (selectedTab) {
-                    0 -> GpsScreen(
-                        gpsData, attData, envData, flightSnap, declinationDeg,
-                        gForce = gForce,
-                        sunTimes = sunTimes,
-                        recordingEnabled = recordingEnabled,
-                        onRecordingEnabledChange = { service?.setRecordingEnabled(it) },
-                        immersive = immersive,
-                        onImmersiveChange = onImmersiveChange,
-                    )
-                    1 -> MapScreen(gpsData)
-                    2 -> DownloadScreen(gpsData)
+                Column(Modifier.fillMaxSize()) {
+                    if (showNotificationBanner) {
+                        NotificationBanner(
+                            onGrant = onGrantNotifications,
+                            onDismiss = onDismissNotificationBanner,
+                        )
+                    }
+                    when (selectedTab) {
+                        0 -> GpsScreen(
+                            gpsData, attData, envData, flightSnap, declinationDeg,
+                            gForce = gForce,
+                            sunTimes = sunTimes,
+                            recordingEnabled = recordingEnabled,
+                            onRecordingEnabledChange = { service?.setRecordingEnabled(it) },
+                            immersive = immersive,
+                            onImmersiveChange = onImmersiveChange,
+                        )
+                        1 -> MapScreen(gpsData)
+                        2 -> DownloadScreen(gpsData)
+                    }
                 }
             }
         }
