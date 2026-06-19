@@ -34,10 +34,10 @@
 - [x] Release signing configuration / 发布签名配置 *(v0.1.0)*
 
 ### Outstanding before v0.2.0 / v0.2.0 发版前待办
-- [ ] TilePreloader 走廊宽度 `cos(lat)` 修正（高纬度偏窄）— 等航班实测
-- [ ] `architecture.md` 刷新（v0.1.2 之后累积的 Repository 拆分、SkyProjection、MagneticDeclination、FlightTimer、GpsScreen 拆分、前台服务层）
-- [ ] POST_NOTIFICATIONS 被拒时的 in-app banner（CR 遗留 S3）
-- [ ] `[Unreleased]` / "已合未 tag" 版本（0.1.1 / 0.1.2 / alpha.1）的补 tag 决策
+- [x] TilePreloader 走廊宽度 `cos(lat)` 修正（高纬度偏窄）*(v0.2.0 正式版)*
+- [x] `architecture.md` 刷新（v0.1.2 之后累积的 Repository 拆分、SkyProjection、MagneticDeclination、FlightTimer、GpsScreen 拆分、前台服务层）*(v0.2.0 正式版)*
+- [x] POST_NOTIFICATIONS 被拒时的 in-app banner（CR 遗留 S3）*(v0.2.0 正式版)*
+- [x] `[Unreleased]` / "已合未 tag" 版本（0.1.1 / 0.1.2 / alpha.1）的补 tag 决策 — 核实 9 个 tag 齐全（0.1.0/0.1.1/0.1.2/alpha.1-4/beta.1-2）
 
 ---
 
