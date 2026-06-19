@@ -8,6 +8,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-19
+
+**Cockpit & Sensors milestone.** Feature-complete release consolidating
+the alpha.1 → beta.2 pre-releases plus three closeout fixes. Turns the
+phone into a cockpit-style flight display: cabin/barometric altitude,
+ZULU + flight timer, G-meter, turn rate, sunrise/sunset, solar time,
+background GPX tracking, and an immersive dashboard.
+
+### Added
+- **Cabin altitude / pressure** — device barometer via ISA, with
+  graceful "no baro" degrade on devices without the sensor *(alpha.1)*.
+- **Static altitude / pressure** — ISA-modelled outside-air pressure at
+  the GPS altitude; always available with a fix *(alpha.1)*.
+- **Load factor (g) + min/max** — aviation-standard load factor from
+  the raw accelerometer; tap the LOAD cell to see the flight's peak
+  positive and negative g *(alpha.1, beta.1)*.
+- **Turn rate** — yaw rate in °/s from the gyroscope *(alpha.1)*.
+- **ZULU clock + flight timer** — UTC time in the top bar; two-state
+  GROUND/AIRBORNE timer auto-detected from GPS *(alpha.2)*.
+- **Magnetic declination** — true/magnetic heading switch via the
+  platform WMM model; heading defaults to magnetic *(alpha.2)*.
+- **Heading-stabilized sky plot** — TRK-UP in motion, HDG-UP when
+  stationary, magnetic-north marker, phone-orientation fan *(alpha.3)*.
+- **Background GPS tracking** — foreground service keeps GPS/sensors
+  alive on screen-off, with a persistent phase notification and Stop
+  action *(alpha.4)*.
+- **GPX track recording** — automatic per-flight `.gpx` files under
+  app storage, with an auto-record toggle *(alpha.4)*.
+- **Immersive full-screen mode** — hide status/nav bars; swipe from an
+  edge to reveal transiently *(beta.1)*.
+- **Sunrise / sunset** — NOAA algorithm from GPS position; UTC, Solar,
+  or Local time reference *(beta.1, beta.2)*.
+- **Solar time** — Meeus equation-of-time (±0.07 s) shown to the second
+  in the bottom bar *(beta.2)*.
+- **Notification-denied banner** — when POST_NOTIFICATIONS is denied on
+  API 33+, an inline banner warns that background GPS may be killed on
+  screen-off; dismissible and persisted *(closeout)*.
+
+### Fixed
+- **Sunrise/sunset 24-hour error** for eastern longitudes — now uses
+  the observer's local solar date *(beta.2)*.
+- **Polar day/night stuck on `--`** — polarCase now participates in
+  StateFlow dedup *(beta.2)*.
+- **TilePreloader corridor too narrow at high latitude** — radius now
+  divides by `cos(lat)`, so a PEK→SFO corridor keeps its physical width
+  *(closeout)*.
+
+### Changed
+- Data flow moved into `GpsTrackingService`; `MainActivity` is a pure
+  subscriber via a bound service *(alpha.4)*.
+- `User-Agent` derives from `BuildConfig.VERSION_NAME` across tiles/map/
+  download — the three-place version sync is gone *(alpha.4)*.
+- `architecture.md` refreshed to reflect the v0.2.0 service layer and
+  derived-state repositories *(closeout)*.
+
 ## [0.2.0-beta.2] — 2026-05-18
 
 ### Added
